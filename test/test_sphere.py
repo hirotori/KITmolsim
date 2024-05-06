@@ -8,7 +8,7 @@ class TestIcosphere(unittest.TestCase):
 
     def test_property(self):
         self.assertEqual(self.sphere.nvert, 162)
-        self.assertEqual(self.sphere.nbond_group)
+        self.assertEqual(self.sphere.nbond_group, 6)
 
     
 if __name__ == "__main__":
