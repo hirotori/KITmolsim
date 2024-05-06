@@ -21,7 +21,7 @@ class BaseParticleObject:
 
     def __init__(self, verts:np.ndarray, 
                        vert_types:np.ndarray,
-                       vert_type_kinds:np.ndarray,
+                       vert_type_kinds:list,
                        bonds: Union[np.ndarray,None] = None,
                        bond_r0:Union[np.ndarray,None] = None,
                        bond_types:Union[np.ndarray,None] = None,
@@ -69,6 +69,12 @@ class BaseParticleObject:
         """
         return self._vert_type_kinds
     
+    def append_new_type_kind(self, new_type_id):
+        """append new `vert_type_kind` to `vert_type_kinds`."""
+        if new_type_id in self.vert_type_kinds:
+            raise ValueError(f"Given id {new_type_id} has already been registered.")
+
+        self._vert_type_kinds.append(new_type_id)
 
     @property
     def nbond(self):

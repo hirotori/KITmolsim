@@ -4,6 +4,8 @@ import numpy as np
 class IcosphereParticle(util.BaseParticleObject):    
     def __init__(self, radius:float, center=[0,0,0], nsub=2, bond_type="diametric") -> None:
         icos = icomesh.Icosphere(radius, center, nsub)
+        self._radius = radius
+        self._center = center
         self._bond_type = bond_type
         
         # create neighbor list
@@ -76,7 +78,18 @@ class IcosphereParticle(util.BaseParticleObject):
         # ** patch 
         self.patch_vert_ids = {}
 
-        
+    @property
+    def radius(self):
+        return self._radius
+
+    @property
+    def bond_type(self):
+        return self._bond_type
+
+    @property
+    def center(self):
+        return self._center
+
     def _id_to_str(self, id) -> str:
         return chr(65+id)
 
@@ -89,7 +102,7 @@ class IcosphereParticle(util.BaseParticleObject):
         if axis not in (0,1,2):
             raise ValueError("keyword `axis` must be 0, 1 or 2")
 
-        _, patch_points = np.where([self.verts[:,axis]  - self.center >= self.R*np.cos(np.deg2rad(angle))])
+        _, patch_points = np.where([self.verts[:,axis] - self.center[axis] >= self.radius*np.cos(np.deg2rad(angle))])
 
         return patch_points
     
@@ -113,9 +126,9 @@ class IcosphereParticle(util.BaseParticleObject):
             raise ValueError("Additional typeid must be > 0")
         _patch_vert_ids = self._extract_patch_vertex_ids(angle, axis)
 
-        self.vert_typeid[_patch_vert_ids] = typeid
+        self.vert_types[_patch_vert_ids] = typeid
         self.patch_vert_ids[self._id_to_str(typeid)] = _patch_vert_ids
-        self.vert_type_kinds.append(self._id_to_str(typeid))
+        self.append_new_type_kind(self._id_to_str(typeid))
 
 
 class FCCSphere:
