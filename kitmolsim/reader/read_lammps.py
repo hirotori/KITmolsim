@@ -1,6 +1,7 @@
 import numpy as np
 import collections.abc
 import typing
+import warnings
 
 class LAMMPSTrajectoryFrame:
     """
@@ -137,34 +138,32 @@ def read_dumpfile(filename:str):
     print("")
     return trajectory
     
-if __name__ == "__main__":
-    import argparse
-    import os
-    description = """
-    
-    read LAMMPS trajectory (.lammpstrj) and dump into .txt or binary data
+def load_datafile_chunk(filename:str, ntotal:int):
+    with open(file=filename, mode="r") as f:
+        f.readline() #the first line (comment)
+        buffer = [words for words in f.readline().split(" ")] # the second line ()
+        ncol1 = len(buffer[1:])
+        buffer = [words for words in f.readline().split(" ")] # the third line ()
+        ncol2 = len(buffer[1:])
+        assert(ncol1 == 3)
+        assert(ncol2 == 4)
 
-    """
-    parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("path_to_file")
-    args = parser.parse_args()
-
-    path_to_file = args.path_to_file
-    savedir, _ = os.path.split(path_to_file)
-    
-    trj = read_dumpfile(path_to_file)
-    ntot = len(trj)
-    print(f"num of frame: {ntot}")
-
-    for i in range(3):
-        print(trj.frames[i].pos.max())
-
-    trj.wrap()
-
-    for i in range(3):
-        print(trj.frames[i].pos.max())
-
-
+        # *** load main data ***
+        i = 1
+        val_all = []
+        while (i <= ntotal):
+            try:
+                _, nchunk, _ = np.loadtxt(f, max_rows=1, unpack=True)
+                id, x, natom, val = np.loadtxt(f, max_rows=int(nchunk), unpack=True)
+                val_all.append(val)
+                
+                i += 1
+                print(f"\r data count: {i}/{ntotal}", end="")
+            except:
+                warnings.warn(f"load_datafile_chunk:: Number of the data in this file is less than {ntotal}.")
+                break
+        print("")
+        return np.array(x), np.array(val_all)
 
 
     
