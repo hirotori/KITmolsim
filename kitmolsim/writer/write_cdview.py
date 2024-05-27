@@ -22,7 +22,7 @@ def write_cdv(filename:str,
     atom_type (np.ndarray) : atom types. shape = (N,)
     box_s (tuple(float)) : coordinate (x,y,z) of the starting point of simulation box. 
     box_e (tuple(float)) : coordinate (x,y,z) of the ending point of simulation box.
-    box_wt (float,optional) : the line width of the simulation box. box_wt = 1.0 by default.
+    box_wt (float,optional) : the line width of the simulation box. box_wt = 0.01 by default.
     radius (np.ndarray) : a sequence of radii for each atom type
     color (np.ndarray) : a sequence of colors for each atom type (R,G,B)
     light_pos (tuple(float)) : lite source position in a screen
@@ -57,14 +57,14 @@ def __validate(pos, atype, bs, be, rad, c, lpos):
     n, nd = pos.shape
     if nd != 3:
         raise ValueError(f"size of the rank 2 must be 3 but {nd} is given")
-    _ = atype.reshape([n]) # test if shape = (N,)
+    _ = atype.reshape([n], dtype=np.int32) # test if shape = (N,)
 
     if bs is not None: assert(len(bs) == 3)
     if be is not None: assert(len(be) == 3)
     
     n_atype = len(np.unique(atype))
 
-    if rad is not None: _ = rad.reshape([n_atype])
-    if c   is not None: _ = c.reshape([n_atype,3])
+    if rad is not None: _ = rad.reshape([n_atype], dtype=np.float32)
+    if c   is not None: _ = c.reshape([n_atype,3], dtype=np.int32)
 
     if lpos is not None: assert(len(lpos) == 3)
