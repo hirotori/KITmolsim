@@ -57,7 +57,7 @@ def __validate(pos, atype, bs, be, rad, c, lpos):
     n, nd = pos.shape
     if nd != 3:
         raise ValueError(f"size of the rank 2 must be 3 but {nd} is given")
-    _ = atype.reshape([n], dtype=np.int32) # test if shape = (N,)
+    _ = atype.reshape([n]).astype(np.int32) # test if shape = (N,)
 
     if bs is not None: assert(len(bs) == 3)
     if be is not None: assert(len(be) == 3)
