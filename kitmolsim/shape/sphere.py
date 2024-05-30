@@ -18,8 +18,9 @@ class IcosphereParticle(icomesh.Icosphere):
 
         # compute distances between nearest neighbors on surface
         surf_pairs = np.array(surf_pairs)
-        surf_pair_distances = np.zeros(surf_pairs)
-        for pairId in range(surf_pairs):
+        n_surf_pairs = len(surf_pairs)
+        surf_pair_distances = np.zeros(n_surf_pairs)
+        for pairId in range(n_surf_pairs):
             surf_pair_distances[pairId] = np.linalg.norm(self.verts[surf_pairs[pairId,0]] - self.verts[surf_pairs[pairId,1]])
 
         # construct bond array (inner)
@@ -56,11 +57,12 @@ class IcosphereParticle(icomesh.Icosphere):
         self.nbond = len(self.bonds)
         self.bond_r0 = self.bond_distances.round(decimals=5) 
         _r0s, _nc = np.unique(self.bond_r0, return_counts=True) # unique r0
+        assert(_nc.sum() == self.nbond)
         self.bond_group_ids = [] # list of bonds in different group
         self.nbond_group = len(_r0s)
         self.bond_group_r0 = _r0s
-        self.bond_types = np.zeros(self.nbond, dtype=np.int32) # 0 for surface pairs
-        self.bond_type_kinds = [f"bond{id}" for id in self.nbond_group]
+        self.bond_types = np.zeros(self.nbond, dtype=np.int32)
+        self.bond_type_kinds = [f"bond{id}" for id in range(self.nbond_group)]
 
         for bond_type_id, _r0 in enumerate(_r0s):
             bond_group_ids = np.where(self.bond_r0 == _r0)[0]
