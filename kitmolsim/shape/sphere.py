@@ -251,7 +251,6 @@ def create_crystal_sphere(unit_lattice:np.ndarray, radius:float, lattice_constan
     
     # curving out the crystal to form a sphere
     pos = np.array(pos)
-    pos_com = pos.mean(axis=0)
-    pos_sphere = pos[np.linalg.norm(pos - pos_com, axis=1) < radius]    
+    pos_sphere = pos[np.linalg.norm(pos, axis=1) <= radius]    
     
     return pos_sphere
