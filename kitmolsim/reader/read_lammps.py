@@ -53,7 +53,7 @@ class LAMMPSTrajectory(collections.abc.Container):
     def __contains__(self, __x: object) -> bool:
         return __x in self.frames
     
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> LAMMPSTrajectoryFrame:
         return self.frames[key]
     
     def unwrap(self) -> None:
