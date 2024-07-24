@@ -19,8 +19,8 @@ class LAMMPSTrajectoryFrame:
                  atype:np.ndarray, 
                  pos:np.ndarray, 
                  box:np.ndarray,
-                 vel=np.ndarray,
-                 img=np.ndarray):
+                 vel:np.ndarray = None,
+                 img:np.ndarray = None):
         self.timestep: int = timestep
         self.natom: int = natom
         self.atype: np.ndarray = atype
@@ -29,7 +29,23 @@ class LAMMPSTrajectoryFrame:
         self.box: np.ndarray = box
         self.vel = None
         self.img = None
-    
+
+class LAMMPSDataFrame(LAMMPSTrajectoryFrame):
+    def __init__(self, timestep: int, natom: int, 
+                 ids: np.ndarray, atype: np.ndarray, 
+                 pos: np.ndarray, box: np.ndarray, 
+                 vel: np.ndarray = None, img: np.ndarray = None, 
+                 nbond: int = None, nbond_type: int = None, 
+                 bonds: np.ndarray = None, bondtypes: np.ndarray=None, 
+                 bond_coeffs : np.ndarray = None, bond_r0 : np.ndarray = None):
+        
+        super().__init__(timestep, natom, ids, atype, pos, box, vel, img)
+        self.nbond = nbond
+        self.nbond_type = nbond_type
+        self.bonds = bonds
+        self.bondtypes = bondtypes
+        self.bond_coeffs = bond_coeffs
+        self.bond_r0 = bond_r0
 
 class LAMMPSTrajectory(collections.abc.Container):
     """
@@ -138,7 +154,7 @@ def read_dumpfile(filename:str):
     print("")
     return trajectory
     
-def load_datafile_chunk(filename:str, ntotal:int):
+def read_datafile_chunk(filename:str, ntotal:int):
     with open(file=filename, mode="r") as f:
         f.readline() #the first line (comment)
         buffer = [words for words in f.readline().split(" ")] # the second line ()
@@ -166,4 +182,106 @@ def load_datafile_chunk(filename:str, ntotal:int):
         return np.array(x), np.array(val_all)
 
 
+def read_datafile(filename:str):
+    """
+    read data file that read by the lammps command 'read_data'. 
     
+    """
+    
+    with open(file=filename, mode="r") as f:
+        # 
+        comment = f.readline() # the 1st line (comment)
+        keyword = f.readline() # new_line
+        atoms = f.readline().split(" ")
+        natom = int(atoms[0])
+        n = 0
+        keyword = f.readline()
+
+        nbond = None
+        nangle = None
+        ndihed = None
+        nimpro = None
+        
+        nbond_type = None
+        nangle_type = None
+        ndihed_type = None
+
+        bondid = None
+        bondtype_id = None
+        bond_pair = None
+
+        bondtype_id = None
+        bond_coeffs = None
+        bond_r0     = None
+        while (keyword):
+            
+            words = keyword.split(" ")
+
+            # box
+            if len(words) == 4:
+                if words[2] == "xlo" and words[3] == "xhi\n":
+                    xlo = float(words[0])
+                    xhi = float(words[1])
+                if words[2] == "ylo" and words[3] == "yhi\n":
+                    ylo = float(words[0])
+                    yhi = float(words[1])
+                if words[2] == "zlo" and words[3] == "zhi\n":
+                    zlo = float(words[0])
+                    zhi = float(words[1])
+            
+            # bond, angles, etc.
+            if len(words) == 2:
+                if words[1] == "bonds\n":
+                    nbond = int(words[0])
+                if words[1] == "angles\n":
+                    nangle = int(words[0])
+                if words[1] == "dihedrals\n":
+                    ndihed = int(words[0])
+                if words[1] == "impropers\n":
+                    nimpro = int(words[0])
+            
+            # types
+            if len(words) == 3:
+                if words[1] == "atom":
+                    natom_type = int(words[0])
+                if words[1] == "bond":
+                    nbond_type = int(words[0])
+                if words[1] == "angle":
+                    nangle_type = int(words[0])
+                if words[1] == "dihedral":
+                    ndihed_type = int(words[0])
+
+            # Atoms etc.
+            if words[0] == "Atoms\n":
+                _ = f.readline()
+                buffer = np.loadtxt(f, max_rows=natom)
+                atomid = buffer[:,0]
+                molecule_id = buffer[:,1]
+                atom_type   = buffer[:,2]
+                q           = buffer[:,3]
+                pos         = buffer[:,4:6]
+                print(id)
+            if words[0] == "Bonds\n":
+                _ = f.readline()
+                buffer = np.loadtxt(f, max_rows=nbond)
+                bondid = buffer[:,0]
+                bondtype_id = buffer[:,1]
+                bond_pair = buffer[:,2:3]
+            if words[0] == "Bond Coeffs\n":
+                _ = f.readline()
+                buffer = np.loadtxt(f, max_rows=nbond_type)
+                bondtype_id = buffer[:,0]
+                bond_coeffs = buffer[:,1]
+                bond_r0     = buffer[:,2]
+
+                    
+
+            keyword = f.readline()
+        box = np.array([xhi-xlo, yhi-ylo, zhi-zlo], dtype=np.float32)
+        return LAMMPSDataFrame(timestep=0, natom=natom, ids=atomid, 
+                                atype=atom_type, pos=pos, box=box, 
+                                nbond=nbond, nbond_type=nbond_type, 
+                                bonds=bond_pair, bondtypes=bondtype_id, 
+                                bond_coeffs=bond_coeffs, bond_r0=bond_r0)
+    
+
