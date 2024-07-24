@@ -30,6 +30,15 @@ class LAMMPSTrajectoryFrame:
         self.vel = None
         self.img = None
 
+        self.validate()
+
+    def validate(self):
+        if self.atype is not None: _ = self.atype.reshape([self.natom])
+        if self.ids is not None: _ = self.ids.reshape([self.natom])
+        if self.pos is not None: _ = self.pos.reshape([self.natom,3])
+        if self.vel is not None: _ = self.vel.reshape([self.natom,3])
+        if self.img is not None: _ = self.img.reshape([self.natom,3])
+
 class LAMMPSDataFrame(LAMMPSTrajectoryFrame):
     def __init__(self, timestep: int, natom: int, 
                  ids: np.ndarray, atype: np.ndarray, 
@@ -46,6 +55,15 @@ class LAMMPSDataFrame(LAMMPSTrajectoryFrame):
         self.bondtypes = bondtypes
         self.bond_coeffs = bond_coeffs
         self.bond_r0 = bond_r0
+
+        self.validate_additional_properties()
+
+    def validate_additional_properties(self):
+        if self.nbond is not None:
+            _ = self.bonds.reshape([self.nbond,2])
+            _ = self.bondtypes.reshape([self.nbond])
+            _ = self.bond_coeffs.reshape([self.nbond_type])
+            _ = self.bond_r0.reshape([self.nbond_type])
 
 class LAMMPSTrajectory(collections.abc.Container):
     """
@@ -186,6 +204,7 @@ def read_datafile(filename:str):
     """
     read data file that read by the lammps command 'read_data'. 
     
+    file format: https://docs.lammps.org/99/data_format.html
     """
     
     with open(file=filename, mode="r") as f:
@@ -252,31 +271,32 @@ def read_datafile(filename:str):
                     ndihed_type = int(words[0])
 
             # Atoms etc.
-            if words[0] == "Atoms\n":
+            if keyword == "Atoms\n":
                 _ = f.readline()
                 buffer = np.loadtxt(f, max_rows=natom)
                 atomid = buffer[:,0]
                 molecule_id = buffer[:,1]
                 atom_type   = buffer[:,2]
                 q           = buffer[:,3]
-                pos         = buffer[:,4:6]
-                print(id)
-            if words[0] == "Bonds\n":
+                pos         = buffer[:,4:7]
+
+            if keyword == "Bonds\n":
                 _ = f.readline()
                 buffer = np.loadtxt(f, max_rows=nbond)
                 bondid = buffer[:,0]
                 bondtype_id = buffer[:,1]
-                bond_pair = buffer[:,2:3]
-            if words[0] == "Bond Coeffs\n":
+                bond_pair = buffer[:,2:4]
+
+            if keyword == "Bond Coeffs\n":
                 _ = f.readline()
                 buffer = np.loadtxt(f, max_rows=nbond_type)
-                bondtype_id = buffer[:,0]
-                bond_coeffs = buffer[:,1]
-                bond_r0     = buffer[:,2]
+                bondtype_id_= buffer[:,0] if nbond_type > 1 else buffer[0]
+                bond_coeffs = buffer[:,1] if nbond_type > 1 else buffer[1]
+                bond_r0     = buffer[:,2] if nbond_type > 1 else buffer[2]
 
-                    
+                
+            keyword = f.readline() #read next line (exit if None)
 
-            keyword = f.readline()
         box = np.array([xhi-xlo, yhi-ylo, zhi-zlo], dtype=np.float32)
         return LAMMPSDataFrame(timestep=0, natom=natom, ids=atomid, 
                                 atype=atom_type, pos=pos, box=box, 
