@@ -8,6 +8,8 @@ def write_cdv(filename:str,
               box_s:Tuple[float], 
               box_e:Tuple[float], 
               box_wt=0.01,
+              bondpair=None,
+              bondtypeid=None,
               radius:Union[None,np.ndarray] = None,
               color :Union[None,np.ndarray] = None,
               light_pos=[1.2,1.0,1.1]):
@@ -28,7 +30,7 @@ def write_cdv(filename:str,
     light_pos (tuple(float)) : lite source position in a screen
     """
 
-    __validate(atom_pos, atom_type, box_s, box_e, radius, color, light_pos)
+    __validate(atom_pos, atom_type, box_s, box_e, bondpair, bondtypeid, radius, color, light_pos)
 
     with open(file=os.path.expanduser(filename), mode="w") as f:
         f.write(f"# box_sx={box_s[0]} box_sy={box_s[1]} box_sz={box_s[2]}\n")
@@ -45,12 +47,22 @@ def write_cdv(filename:str,
             buff = [f"c{i}=({c[0]},{c[1]},{c[2]})" for i, c in enumerate(color)]
             f.write("# ")
             print(*buff, sep=" ", file=f)
+
+        # bond information is first inserted (if exist)
+        if bondpair is not None:
+            f.write("\n")
+            header_strings = np.full(shape=len(bondpair), fill_value="CDVIEW_BOND")
+            if bondtypeid is not None:
+                np.savetxt(f, X=np.column_stack((header_strings, bondpair.astype("i4"), bondtypeid.astype("i4"))), fmt="%s")
+            else:
+                np.savetxt(f, X=np.column_stack((header_strings,bondpair.astype("i4"))), fmt="%s")
         
+        # particle information
         ids = np.arange(atom_pos.shape[0])
         np.savetxt(f, X=np.column_stack((ids, atom_type, atom_pos)), fmt="%d %d %f %f %f")
 
 
-def __validate(pos, atype, bs, be, rad, c, lpos):
+def __validate(pos, atype, bs, be, bpair, btypeid, rad, c, lpos):
     """
     validate given arguments
     """
@@ -62,6 +74,16 @@ def __validate(pos, atype, bs, be, rad, c, lpos):
     if bs is not None: assert(len(bs) == 3)
     if be is not None: assert(len(be) == 3)
     
+    if bpair is not None: 
+        npair = len(bpair)
+        _ = bpair.reshape([npair,2])
+        min_atomid = bpair.min()
+        max_atomid = bpair.max()
+        if min_atomid != 0:
+            raise ValueError("atom id in bondpair not started from 0.")
+
+    if btypeid is not None: _ = btypeid.reshape([npair])
+
     n_atype = len(np.unique(atype))
 
     if rad is not None: _ = rad.reshape([n_atype], dtype=np.float32)
