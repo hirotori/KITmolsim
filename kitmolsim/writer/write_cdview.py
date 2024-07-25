@@ -25,6 +25,8 @@ def write_cdv(filename:str,
     box_s (tuple(float)) : coordinate (x,y,z) of the starting point of simulation box. 
     box_e (tuple(float)) : coordinate (x,y,z) of the ending point of simulation box.
     box_wt (float,optional) : the line width of the simulation box. box_wt = 0.01 by default.
+    bondpair (np.ndarray) : bond information. shape = (nbond,2) where nbond is the total number of bonds.
+    bondtypeid (np.ndarray) : bond type-id. if `bondtypeid == None`, then all bond types are interpreted as a same id "0".
     radius (np.ndarray) : a sequence of radii for each atom type
     color (np.ndarray) : a sequence of colors for each atom type (R,G,B)
     light_pos (tuple(float)) : lite source position in a screen
