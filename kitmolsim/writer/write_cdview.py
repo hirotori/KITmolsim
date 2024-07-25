@@ -50,7 +50,6 @@ def write_cdv(filename:str,
 
         # bond information is first inserted (if exist)
         if bondpair is not None:
-            f.write("\n")
             header_strings = np.full(shape=len(bondpair), fill_value="CDVIEW_BOND")
             if bondtypeid is not None:
                 np.savetxt(f, X=np.column_stack((header_strings, bondpair.astype("i4"), bondtypeid.astype("i4"))), fmt="%s")
