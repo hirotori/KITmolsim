@@ -1,6 +1,69 @@
 import numpy as np
 from typing import Tuple
 
+def create_random_state(N:int, Lbox, kT:float, seed:int, overlap=True, diameter=None):
+    """
+    create a state of randomized positions and velocity.
+
+    Positions are randomized by sampling points from uniform distribution.
+    All particles are placed in the rectangle box centered at (0,0,0). 
+    Velocity are randomized by sampling points from Gaussian distribution.
+
+    Parameters
+    ----------
+    N (int) : number of particles
+    Lbox (tuple, list or np.ndarray of size 3) : box dimension
+    kT (float) : system temperature
+    seed (int) : random seed
+    overlap (bool) : whether accept overlapping atoms or not. True by default.
+    diameter (float)
+    """
+
+    rng = np.random.Generator(np.random.MT19937(seed=seed))
+    if overlap:
+        pos = rng.uniform(size=(N,3))
+        pos[:,0] = pos[:,0]*Lbox[0] - Lbox[0]/2
+        pos[:,1] = pos[:,1]*Lbox[1] - Lbox[1]/2
+        pos[:,2] = pos[:,2]*Lbox[2] - Lbox[2]/2
+    else:
+        if diameter is None:
+            raise ValueError("dimaeter must be float.")
+        pos = _placing_particles_without_overlapping(N, Lbox, rng, diameter=diameter)
+    
+    vel = rng.normal(loc=0.0, scale=np.sqrt(kT), size=(N,3))
+
+    return pos, vel
+
+
+def _placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, diameter:float):
+    """
+    placing particles without overlapping. 
+
+    Parameters
+    ----------
+    N (int) : number of particles
+    rng : random generator
+    diameter (float) : diameter of particles. Any particle cannot exist at a distance less than this from any other particle.
+    """
+    pos = []
+    pos.append(rng.random(size=3)) #insert the first particle
+    ncount = 1
+    while ncount < N:
+        print(f"\r kitmolsim::init::_placing: n = {ncount}", end="")
+        # draw particle
+        ri = rng.random(size=3)
+        ri[0] = ri[0]*Lbox[0] - Lbox[0]/2
+        ri[1] = ri[1]*Lbox[1] - Lbox[1]/2
+        ri[2] = ri[2]*Lbox[2] - Lbox[2]/2
+                    
+        # Test the overlap between the newly added particle and the other particles.
+        dij = np.linalg.norm(pos - ri, axis=1)
+        if all(dij >= diameter):
+            pos.append(ri)
+            ncount += 1
+    print("")
+    return np.array(pos)
+
 def randomize_positions(Ncol:float, xrange, yrange, zrange, points:np.ndarray, pairs:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
     set colloids in the box randomly. 
