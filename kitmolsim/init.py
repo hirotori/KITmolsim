@@ -16,7 +16,7 @@ def create_random_state(N:int, Lbox, kT:float, seed:int, overlap=True, diameter=
     kT (float) : system temperature
     seed (int) : random seed
     overlap (bool) : whether accept overlapping atoms or not. True by default.
-    diameter (float)
+    diameter (float) : diameter of particle
     """
 
     rng = np.random.Generator(np.random.MT19937(seed=seed))
@@ -28,14 +28,15 @@ def create_random_state(N:int, Lbox, kT:float, seed:int, overlap=True, diameter=
     else:
         if diameter is None:
             raise ValueError("dimaeter must be float.")
-        pos = _placing_particles_without_overlapping(N, Lbox, rng, diameter=diameter)
+        pos = placing_particles_without_overlapping(N, Lbox, rng, diameter=diameter)
     
     vel = rng.normal(loc=0.0, scale=np.sqrt(kT), size=(N,3))
 
     return pos, vel
 
 
-def _placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, diameter:float):
+def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, diameter:float,
+                                           obstacle_coms=None, obstacle_diameter=None):
     """
     placing particles without overlapping. 
 
@@ -48,6 +49,8 @@ def _placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator,
     pos = []
     pos.append(rng.random(size=3)) #insert the first particle
     ncount = 1
+    iL = 1/Lbox
+    obst_exists = obstacle_coms is not None and obstacle_diameter is not None
     while ncount < N:
         print(f"\r kitmolsim::init::_placing: n = {ncount}", end="")
         # draw particle
@@ -55,12 +58,27 @@ def _placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator,
         ri[0] = ri[0]*Lbox[0] - Lbox[0]/2
         ri[1] = ri[1]*Lbox[1] - Lbox[1]/2
         ri[2] = ri[2]*Lbox[2] - Lbox[2]/2
-                    
+
         # Test the overlap between the newly added particle and the other particles.
         dij = np.linalg.norm(pos - ri, axis=1)
         if all(dij >= diameter):
-            pos.append(ri)
-            ncount += 1
+            # test the overlap between new particle and the obstacles
+            if obst_exists:
+                diff = np.abs(obstacle_coms - ri)
+                diff = np.where(diff > Lbox / 2, diff-Lbox, diff)
+                dij_obs = np.sqrt(np.sum(diff*diff, axis=1))
+                if all(dij_obs >= 0.5*(diameter+obstacle_diameter)):
+                    pos.append(ri)
+                    ncount += 1
+                else:
+                    del pos[-1]
+                    ncount -= 1
+            # if no obstacles exist
+            else:
+                pos.append(ri)
+                ncount += 1
+
+
     print("")
     return np.array(pos)
 
