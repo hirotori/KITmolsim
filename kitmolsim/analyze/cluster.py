@@ -2,8 +2,11 @@ import numpy as np
 from scipy.spatial.distance import pdist, squareform
 from sklearn.cluster import DBSCAN
 
+# mode setting
+DISTANCE_MODE={"numba":0, "fort":1, "scipy":2}
+mode = DISTANCE_MODE["fort"]
 # available if numba exists
-try:
+if mode == 0:
     from numba import njit
     print("distance computation: using jit")
     @njit(cache=True)
@@ -21,11 +24,12 @@ try:
                 dr[i,j] = _dr
                 dr[j,i] = _dr
         return dr
-except:
+elif mode == 1:
     import os
     # if you have fortran compiler, you can use fortran library for computing dinstance matrix.
-    flibpath = "./lib/"
-    flibname = "libf90_distance.so"
+    flibname = "libflib.so"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    flibpath = os.path.join(base_dir, "flib")
     # check if fortran library exists
     if os.path.exists(os.path.join(flibpath, flibname)):
         print("distance computation: using fortran library")
@@ -44,18 +48,22 @@ except:
             fortlib.fort_calc_distance_pbc(ctypes.byref(ctypes.c_int(N)), L, r, mat)
             return mat
     else:
-        print("distance computation: using scipy")
-        # without using numba
-        def modified_distance(u, v, L):
-            """Define function computing distance between two points with periodic boundary condition"""
-            diff = np.abs(u - v)
-            diff = np.where(diff > L / 2, diff-L, diff)
-            return np.sqrt(np.sum(diff ** 2))
+        raise FileNotFoundError("lifblif.so not found.")
 
-        def calc_distance_with_pbc(r:np.ndarray, L):
-            return squareform(pdist(r, metric=lambda u, v: modified_distance(u, v, L)))
+elif mode == 2:
+    print("distance computation: using scipy")
+    # without using numba
+    def modified_distance(u, v, L):
+        """Define function computing distance between two points with periodic boundary condition"""
+        diff = np.abs(u - v)
+        diff = np.where(diff > L / 2, diff-L, diff)
+        return np.sqrt(np.sum(diff ** 2))
 
+    def calc_distance_with_pbc(r:np.ndarray, L):
+        return squareform(pdist(r, metric=lambda u, v: modified_distance(u, v, L)))
 
+else:
+    raise ValueError(f"invalid distance mode {mode}: unknown mode")
     
 def get_cluster_info(coordinates, R, L, additional_process=None):
     """

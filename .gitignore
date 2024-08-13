@@ -1,3 +1,6 @@
 *.cdv
 *.txt
 *.DS_Store
+*.o
+*.mod
+*.so
