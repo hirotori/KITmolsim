@@ -4,14 +4,15 @@ import numpy as np
 def write_lmp_data(filename:str, Lbox:np.ndarray, 
                    Ntotal:int, Natyp:int, pos:np.ndarray, mole_id:np.ndarray, atype:np.ndarray, charges:np.ndarray, 
                    Nbond:int=None, Nbtyp:int=None, bond_type:np.ndarray=None, bondpair:np.ndarray=None, 
-                   bond_coeffs:np.ndarray=None, bond_r0:np.ndarray=None):
+                   bond_coeffs:np.ndarray=None, bond_r0:np.ndarray=None,
+                   mode="w"):
     """
     write data as lammps data format.   
 
     atom_style is "full". molecular-id and charges are needed.
 
     """
-    with open(file=filename, mode="w") as f:
+    with open(file=filename, mode=mode) as f:
         f.write("from initCond.py\n\n")
         f.write(f"{Ntotal} atoms\n")
         f.write(f"{Natyp} atom types\n\n")
