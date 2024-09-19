@@ -87,7 +87,7 @@ def __validate(pos, atype, bs, be, bpair, btypeid, rad, c, lpos):
 
     n_atype = len(np.unique(atype))
 
-    if rad is not None: _ = rad.reshape([n_atype], dtype=np.float32)
-    if c   is not None: _ = c.reshape([n_atype,3], dtype=np.int32)
+    if rad is not None: _ = rad.reshape([n_atype])
+    if c   is not None: _ = c.reshape([n_atype,3])
 
     if lpos is not None: assert(len(lpos) == 3)
