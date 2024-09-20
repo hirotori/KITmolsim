@@ -4,7 +4,7 @@ import numpy as np
 def write_lmp_data(filename:str, Lbox:np.ndarray, 
                    Ntotal:int, Natyp:int, pos:np.ndarray, mole_id:np.ndarray, atype:np.ndarray, charges:np.ndarray, 
                    Nbond:int=None, Nbtyp:int=None, bond_type:np.ndarray=None, bondpair:np.ndarray=None, 
-                   bond_coeffs:np.ndarray=None, bond_r0:np.ndarray=None,
+                   bond_params:np.ndarray=None,
                    mode="w"):
     """
     write data as lammps data format.   
@@ -36,9 +36,13 @@ def write_lmp_data(filename:str, Lbox:np.ndarray,
             np.savetxt(f, np.vstack((bondids, bond_type, bondpair[:,0], bondpair[:,1])).T, fmt="%d %d %d %d")
             f.write("\n")
 
-        has_bond_coeffs = bond_coeffs is not None and bond_r0 is not None
+        has_bond_coeffs = bond_params is not None
 
         if has_bond_coeffs:
             f.write("Bond Coeffs\n\n")
-            np.savetxt(f, np.vstack((np.arange(Nbtyp)+1, bond_coeffs, bond_r0)).T, fmt="%d %f %f")
+            if bond_params.shape[1] != Nbtyp:
+                raise ValueError("the 2nd dimension of bond_params must be equal to Nbtyp.")
+            fmt = ["%d"]
+            fmt.extend(["%f"]*bond_params.shape[0])
+            np.savetxt(f, np.vstack((np.arange(Nbtyp)+1, bond_params)).T, fmt=fmt)
     
