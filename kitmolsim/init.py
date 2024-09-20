@@ -47,10 +47,26 @@ def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, 
     diameter (float) : diameter of particles. Any particle cannot exist at a distance less than this from any other particle.
     """
     pos = []
-    pos.append(rng.random(size=3)) #insert the first particle
-    ncount = 1
     iL = 1/Lbox
     obst_exists = obstacle_coms is not None and obstacle_diameter is not None
+    # first particle
+    ncount = 0
+    while ncount != 1:
+        ri = rng.random(size=3)
+        ri[0] = ri[0]*Lbox[0] - Lbox[0]/2
+        ri[1] = ri[1]*Lbox[1] - Lbox[1]/2
+        ri[2] = ri[2]*Lbox[2] - Lbox[2]/2
+        pos.append(ri)
+        if obst_exists:
+            if __can_insert_particle(ri, obstacle_coms, Lbox, diameter, obstacle_diameter):
+                ncount += 1
+            else:
+                del pos[-1]
+        else:
+            # any particle is accepted.
+            ncount += 1
+    assert(len(pos) == 1)
+
     while ncount < N:
         print(f"\r kitmolsim::init::_placing: n = {ncount}", end="")
         # draw particle
@@ -64,15 +80,10 @@ def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, 
         if all(dij >= diameter):
             # test the overlap between new particle and the obstacles
             if obst_exists:
-                diff = np.abs(obstacle_coms - ri)
-                diff = np.where(diff > Lbox / 2, diff-Lbox, diff)
-                dij_obs = np.sqrt(np.sum(diff*diff, axis=1))
-                if all(dij_obs >= 0.5*(diameter+obstacle_diameter)):
+                if __can_insert_particle(ri, obstacle_coms, Lbox, diameter, obstacle_diameter):
                     pos.append(ri)
                     ncount += 1
-                else:
-                    del pos[-1]
-                    ncount -= 1
+                # nothing done if the vector ri is not accepted.
             # if no obstacles exist
             else:
                 pos.append(ri)
@@ -81,6 +92,15 @@ def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, 
 
     print("")
     return np.array(pos)
+
+def __can_insert_particle(ri, obst_coms, Lbox, d, obs_d):
+    diff = np.abs(obst_coms - ri)
+    diff = np.where(diff > Lbox / 2, diff-Lbox, diff)
+    dij_obs = np.sqrt(np.sum(diff*diff, axis=1))
+    if all(dij_obs >= 0.5*(d+obs_d)):
+        return True
+    else:
+        return False
 
 def randomize_positions(Ncol:float, xrange, yrange, zrange, points:np.ndarray, pairs:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
