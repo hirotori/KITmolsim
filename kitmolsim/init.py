@@ -202,13 +202,10 @@ def make_defected_fcc(L:float, rho:float, seed:int):
 
     """
     # compute num of cells
-    m = int(np.floor((L**3 * rho / 4.0)**(1.0 / 3.0)))
-    drho1 = np.abs(4.0 * m**3 / L**3 - rho)
-    drho2 = np.abs(4.0 * (m + 1)**3 / L**3 - rho)
-    
-    ncell = m if drho1 < drho2 else m+1
+    m = int(np.ceil((L**3 * rho / 4.0)**(1.0 / 3.0)))
+    a = L/m
 
-    pos, Lbox = make_lattice(fcc_unit_cell(), (ncell,ncell,ncell), L/m)
+    pos, Lbox = make_lattice(fcc_unit_cell(), (m,m,m), a)
 
     # sampling
     n = int(rho*L**3)
