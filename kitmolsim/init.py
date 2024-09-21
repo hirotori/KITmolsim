@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Union
 
 def create_random_state(N:int, Lbox, kT:float, seed:int, overlap=True, diameter=None):
     """
@@ -35,8 +35,8 @@ def create_random_state(N:int, Lbox, kT:float, seed:int, overlap=True, diameter=
     return pos, vel
 
 
-def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, diameter:float,
-                                           obstacle_coms=None, obstacle_diameter=None):
+def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, diameter:Union[float,np.ndarray],
+                                           obstacle_coms:np.ndarray=None, obstacle_diameter:Union[float,np.ndarray]=None):
     """
     placing particles without overlapping. 
 
@@ -44,7 +44,9 @@ def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, 
     ----------
     N (int) : number of particles
     rng : random generator
-    diameter (float) : diameter of particles. Any particle cannot exist at a distance less than this from any other particle.
+    diameter (float or array like) : diameter of particles. Any particle cannot exist at a distance less than this from any other particle.
+    obstacle_coms (ndarray,optional) : center-of-mass of obstacles. particles are placed without overlapping these obstacles.
+    obstacle_diameter (float or array like,optional) : diameter of obstacles. 
     """
     pos = []
     iL = 1/Lbox
