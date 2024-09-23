@@ -78,7 +78,7 @@ def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, 
         ri[2] = ri[2]*Lbox[2] - Lbox[2]/2
 
         # Test the overlap between the newly added particle and the other particles.
-        dij = np.linalg.norm(pos - ri, axis=1)
+        dij = __calc_distance_with_pbc(ri, pos, Lbox)
         if all(dij >= diameter):
             # test the overlap between new particle and the obstacles
             if obst_exists:
@@ -96,13 +96,72 @@ def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, 
     return np.array(pos)
 
 def __can_insert_particle(ri, obst_coms, Lbox, d, obs_d):
-    diff = np.abs(obst_coms - ri)
-    diff = np.where(diff > Lbox / 2, diff-Lbox, diff)
-    dij_obs = np.sqrt(np.sum(diff*diff, axis=1))
+    dij_obs = __calc_distance_with_pbc(ri, obst_coms, Lbox)
     if all(dij_obs >= 0.5*(d+obs_d)):
         return True
     else:
         return False
+
+def __calc_distance_with_pbc(ri, pos_others, Lbox):
+    diff = np.abs(pos_others - ri)
+    diff = np.where(diff > Lbox / 2, diff-Lbox, diff)
+    dij = np.sqrt(np.sum(diff*diff, axis=1))
+
+    return dij
+    
+def placing_particles_fcc(rho:float, Ntarget:int, Lbox, rng:np.random.Generator, 
+                          obstacle_coms:np.ndarray=None, obstacle_diameter:float=None):
+    """
+    Placing atoms in the box on the FCC structure. 
+    Particles are first inserted on the FCC structure at a density rho* > `rho`, then adjusting the number of particles
+    to reach the target density `rho` by sampling points. 
+    If there are obstacles in the box, particles inside the obstacles are removed. 
+    If resulting number of particles does not match `Ntarget`, then particles are removed or added to match `Ntarget`.
+
+    Parameters
+    -------------
+    rho (float) : number density of a system.
+    Ntarget (int) : target number of particles.
+    Lbox (tuple or array like) : system box
+    rng : random generator
+    obstacle_coms (ndarray,optional) : center-of-mass of obstacles. particles are placed without overlapping these obstacles.
+    obstacle_diameter (float,optional) : diameter of obstacles. 
+
+    Note
+    --------------
+    Generally, inserting many additional particles takes much time than erasing excess ones.
+    We recommend setting `rho` slightly larger than the target number density.
+
+    """
+
+    r_water, _ = make_defected_fcc(L=Lbox[0], rho=rho, seed=442)
+    print(f"First generating {len(r_water)} beads")
+
+    # delete atoms
+    r_water_new = []
+    for rw in r_water:
+        dij_obs = __calc_distance_with_pbc(rw, obstacle_coms, Lbox)
+        if np.all(dij_obs >= obstacle_diameter):
+            r_water_new.append(rw)
+    print(f"Water beads deleted: {len(r_water)} ==> {len(r_water_new)}")
+    r_water = np.array(r_water_new)
+
+    Nwater_inserted = r_water.shape[0]
+    nwater_rest = Ntarget - Nwater_inserted
+    if nwater_rest > 0:
+        # this process is slow. 
+        _obst_coms = np.concatenate((r_water, obstacle_coms), axis=0)
+        _obst_diam = np.concatenate((np.full(Nwater_inserted, fill_value=1.0), np.full(len(_obst_coms), fill_value=obstacle_diameter)))
+        r_water_rest  = placing_particles_without_overlapping(N=nwater_rest, Lbox=Lbox, rng=rng, diameter=1.0,
+                                                                obstacle_coms=_obst_coms, obstacle_diameter=_obst_diam)
+        r_water = np.concatenate((r_water, r_water_rest), axis=0)
+        print(f"{nwater_rest} beads are inserted.")
+
+    elif nwater_rest < 0:
+        r_water = rng.choice(r_water, size=Ntarget, replace=False)
+        print(f"{abs(nwater_rest)} beads are removed.")
+
+    return np.ndarray(r_water)
 
 def randomize_positions(Ncol:float, xrange, yrange, zrange, points:np.ndarray, pairs:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
