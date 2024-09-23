@@ -78,7 +78,7 @@ def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, 
         ri[2] = ri[2]*Lbox[2] - Lbox[2]/2
 
         # Test the overlap between the newly added particle and the other particles.
-        dij = np.linalg.norm(pos - ri, axis=1)
+        dij = __calc_distance_with_pbc(ri, pos, Lbox)
         if all(dij >= diameter):
             # test the overlap between new particle and the obstacles
             if obst_exists:
@@ -96,14 +96,19 @@ def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, 
     return np.array(pos)
 
 def __can_insert_particle(ri, obst_coms, Lbox, d, obs_d):
-    diff = np.abs(obst_coms - ri)
-    diff = np.where(diff > Lbox / 2, diff-Lbox, diff)
-    dij_obs = np.sqrt(np.sum(diff*diff, axis=1))
+    dij_obs = __calc_distance_with_pbc(ri, obst_coms, Lbox)
     if all(dij_obs >= 0.5*(d+obs_d)):
         return True
     else:
         return False
 
+def __calc_distance_with_pbc(ri, pos_others, Lbox):
+    diff = np.abs(pos_others - ri)
+    diff = np.where(diff > Lbox / 2, diff-Lbox, diff)
+    dij = np.sqrt(np.sum(diff*diff, axis=1))
+
+    return dij
+    
 def placing_particles_fcc(rho:float, Ntarget:int, Lbox, rng:np.random.Generator, 
                           obstacle_coms:np.ndarray=None, obstacle_diameter:float=None):
     """
