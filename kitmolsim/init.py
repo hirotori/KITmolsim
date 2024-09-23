@@ -140,9 +140,7 @@ def placing_particles_fcc(rho:float, Ntarget:int, Lbox, rng:np.random.Generator,
     # delete atoms
     r_water_new = []
     for rw in r_water:
-        diff = np.abs(obstacle_coms - rw)
-        diff = np.where(diff > Lbox / 2, diff-Lbox, diff)
-        dij_obs = np.sqrt(np.sum(diff*diff, axis=1))
+        dij_obs = __calc_distance_with_pbc(rw, obstacle_coms, Lbox)
         if np.all(dij_obs >= obstacle_diameter):
             r_water_new.append(rw)
     print(f"Water beads deleted: {len(r_water)} ==> {len(r_water_new)}")
