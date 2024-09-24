@@ -11,12 +11,12 @@ KITmolsim is a python package of utility modules for molecular simulations.
   
 ## Prerequisities
 The list below is the python packages with which we assured this package correctly works:
-- numpy >= 1.24.4
+- numpy >= 1.24.4, less than 2.~
 - scipy >= 1.11.1
 - scikit-learn >= 1.3.0
 - numba >= 0.57.1
 
-The `numba` package is not strictly necessary. If not found, this package uses the Fortran library (found on`kitmolsim/analyze/lib`) instead.
+The `numba` package is not strictly necessary. If not found, this package uses the Fortran library (found on`kitmolsim/analyze/flib`) instead.
 
 ## Install
 
@@ -26,6 +26,12 @@ Install required libraries if they have not yet been installed.
 
 ```bash
 pip3 install numpy scipy scikit-learn numba
+```
+
+If needed, build fortran modules in `flib` by using `make`.
+
+```bash
+make
 ```
 
 <a id="Japanese"></a>
@@ -39,7 +45,7 @@ KITmolsimは分子シミュレーションに役立つモジュールをまと�
 
 ## 必要なパッケージ
 以下のリストは正常に動作が確認できているパッケージです:
-- numpy >= 1.24.4
+- numpy >= 1.24.4 (ただしver.2.~未満．ver.2の互換性は未検証.)
 - scipy >= 1.11.1
 - scikit-learn >= 1.3.0
 - numba >= 0.57.1
@@ -50,3 +56,9 @@ KITmolsimは分子シミュレーションに役立つモジュールをまと�
 このパッケージをPythonのパスが通っているディレクトリへ移動してください. 
 
 必要なパッケージがインストールされていない場合は適宜インストールしてください. 
+
+もし必要なら, `flib`内のFortranモジュールをビルドしてください．`make`コマンドが必要です．
+
+```bash
+make
+```
