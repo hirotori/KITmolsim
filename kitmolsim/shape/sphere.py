@@ -1,13 +1,15 @@
 from . import icomesh, util
 import numpy as np
 
-class IcosphereParticle(icomesh.Icosphere):
-    def __init__(self, radius:float, center=[0,0,0], nsub=2, bond_type="diametric") -> None:
-        super().__init__(radius, center, nsub)
+class IcosphereParticle(util.BaseDiscreteParticleObject):    
+    def __init__(self, radius:float, center=[0,0,0], nsub=2, bond_type="diametric", default_vert_type="A") -> None:
+        icos = icomesh.Icosphere(radius, center, nsub)
+        self._radius = radius
+        self._center = center
         self._bond_type = bond_type
         
         # create neighbor list
-        point_connectivity = [np.array(self.pt_neighbors[vertId]) for vertId in range(self.nvert)]
+        point_connectivity = [np.array(icos.pt_neighbors[vertId]) for vertId in range(icos.nvert)]
         
         # construct a list of pairs of nearest neighbor particles on a surface with no duplicates
         surf_pairs = []
@@ -18,16 +20,16 @@ class IcosphereParticle(icomesh.Icosphere):
 
         # compute distances between nearest neighbors on surface
         surf_pairs = np.array(surf_pairs)
-        n_surf_pairs = len(surf_pairs)
-        surf_pair_distances = np.zeros(n_surf_pairs)
-        for pairId in range(n_surf_pairs):
-            surf_pair_distances[pairId] = np.linalg.norm(self.verts[surf_pairs[pairId,0]] - self.verts[surf_pairs[pairId,1]])
+        surf_pair_distances = np.zeros(len(surf_pairs))
+        for pairId in range(len(surf_pairs)):
+            surf_pair_distances[pairId] = np.linalg.norm(icos.vertices[surf_pairs[pairId,0]] - icos.vertices[surf_pairs[pairId,1]])
 
         # construct bond array (inner)
         if bond_type == "diametric":
-            _diam_pairs, _diam_dists = util.search_opposed_pair(self.verts)
-            self.bonds = np.concatenate((surf_pairs, _diam_pairs), axis=0)
-            self.bond_distances = np.concatenate((surf_pair_distances, _diam_dists))
+            _diam_pairs, _diam_dists = util.search_opposed_pair(icos.vertices)
+            verts = icos.vertices
+            bonds = np.concatenate((surf_pairs, _diam_pairs), axis=0)
+            bond_distances = np.concatenate((surf_pair_distances, _diam_dists))
 
         elif bond_type == "center":
             #pairs of center point (id = Nverts) and vertices on surface (id=0~Nverts-1)
@@ -36,43 +38,59 @@ class IcosphereParticle(icomesh.Icosphere):
             N_center_bonds = self.nvert
             center_distances = np.zeros(N_center_bonds)
             for Id in range(N_center_bonds):
-                center_distances[Id] = np.linalg.norm(self.verts[Id] - center)
+                center_distances[Id] = np.linalg.norm(icos.vertices[Id] - center)
             
-            self.verts = np.vstack((self.verts, center))
-            self.bonds = np.concatenate((surf_pairs, Pt2centers), axis=0)
-            self.bond_distances = np.concatenate((surf_pair_distances, center_distances))
+            verts = np.vstack((icos.vertices, center))
+            bonds = np.concatenate((surf_pairs, Pt2centers), axis=0)
+            bond_distances = np.concatenate((surf_pair_distances, center_distances))
 
         else:
             # no inner bonds constructed
-            self.bonds = surf_pairs
-            self.bond_distances = surf_pair_distances
+            bonds = surf_pairs
+            bond_distances = surf_pair_distances
         
         # properties required for molecular simulation
         # ** vertex
-        self.nvert = len(self.verts) #should be updated
-        self.vert_typeid = np.zeros(self.nvert)
-        self.vert_type_kinds = [self._id_to_str(0)]
+        vert_typeid = np.zeros(verts.shape[0])
+        vert_types = [default_vert_type]
 
         # ** bonds
-        self.nbond = len(self.bonds)
-        self.bond_r0 = self.bond_distances.round(decimals=5) 
-        _r0s, _nc = np.unique(self.bond_r0, return_counts=True) # unique r0
-        assert(_nc.sum() == self.nbond)
-        self.bond_group_ids = [] # list of bonds in different group
-        self.nbond_group = len(_r0s)
-        self.bond_group_r0 = _r0s
-        self.bond_types = np.zeros(self.nbond, dtype=np.int32)
-        self.bond_type_kinds = [f"bond{id}" for id in range(self.nbond_group)]
+        bond_r0 = bond_distances.round(decimals=5) 
+        _r0s, _ = np.unique(bond_r0, return_counts=True) # unique r0
+        bond_group_id_list = [] # list of bonds in different group
+        nbond_group = len(_r0s)
+        bond_group_r0 = _r0s
+        bond_typeid = np.zeros(bonds.shape[0], dtype=np.int32) # 0 for surface pairs
+        bond_types = [f"bond{id}" for id in range(nbond_group)]
 
-        for bond_type_id, _r0 in enumerate(_r0s):
-            bond_group_ids = np.where(self.bond_r0 == _r0)[0]
-            self.bond_group_ids.append(bond_group_ids)
-            self.bond_types[bond_group_ids] = bond_type_id
+        for _bt, _r0 in enumerate(_r0s):
+            bond_group_ids = np.where(bond_r0 == _r0)[0]
+            bond_group_id_list.append(bond_group_ids)
+            bond_types[bond_group_ids] = _bt
+
+        super().__init__(len(verts), verts, vert_typeid, vert_types,
+                         len(bonds), bonds, bond_r0, bond_typeid, bond_types)
+
+        # bond group
+        self.nbond_group = nbond_group
+        self.bond_groups = bond_group_id_list
+        self.bond_group_r0 = bond_group_r0
 
         # ** patch 
         self.patch_vert_ids = {}
 
-        
+    @property
+    def radius(self):
+        return self._radius
+
+    @property
+    def bond_type(self):
+        return self._bond_type
+
+    @property
+    def center(self):
+        return self._center
+
     def _id_to_str(self, id) -> str:
         return chr(65+id)
 
@@ -85,7 +103,7 @@ class IcosphereParticle(icomesh.Icosphere):
         if axis not in (0,1,2):
             raise ValueError("keyword `axis` must be 0, 1 or 2")
 
-        _, patch_points = np.where([self.verts[:,axis]  - self.center >= self.R*np.cos(np.deg2rad(angle))])
+        _, patch_points = np.where([self.verts[:,axis] - self.center[axis] >= self.radius*np.cos(np.deg2rad(angle))])
 
         return patch_points
     
@@ -109,9 +127,9 @@ class IcosphereParticle(icomesh.Icosphere):
             raise ValueError("Additional typeid must be > 0")
         _patch_vert_ids = self._extract_patch_vertex_ids(angle, axis)
 
-        self.vert_typeid[_patch_vert_ids] = typeid
+        self.vert_types[_patch_vert_ids] = typeid
         self.patch_vert_ids[self._id_to_str(typeid)] = _patch_vert_ids
-        self.vert_type_kinds.append(self._id_to_str(typeid))
+        self.append_new_type(self._id_to_str(typeid))
 
 
 class FCCSphere:

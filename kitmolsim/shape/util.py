@@ -2,9 +2,9 @@ import numpy as np
 import math as mt
 from typing import Union
 
-class BaseParticleObject:
+class BaseDiscreteParticleObject:
     """
-    Base class of the particle object.    
+    Base class of the (discrete) particle object.    
     """
 
     _default_vals = dict()
@@ -19,28 +19,41 @@ class BaseParticleObject:
     _default_vals["bond_types"] = np.array([0], dtype=np.int32)
     _default_vals["bond_type_kinds"] = ["A"]
 
-    def __init__(self, verts:np.ndarray, 
-                       vert_types:np.ndarray,
-                       vert_type_kinds:np.ndarray,
+    def __init__(self, Nvert: int, 
+                       verts:np.ndarray, 
+                       vert_typeid:np.ndarray,
+                       vert_types:list,
+                       Nbond: Union[int, None] = None,
                        bonds: Union[np.ndarray,None] = None,
                        bond_r0:Union[np.ndarray,None] = None,
-                       bond_types:Union[np.ndarray,None] = None,
-                       bond_type_kinds:Union[list,None] = None,
+                       bond_typeid:Union[np.ndarray,None] = None,
+                       bond_types:Union[list,None] = None,
                        ) -> None:
         """
         construct particle object. 
-        """
-        self._nvert = len(verts)
-        self._verts = self._validate_array(verts, np.float64, [self.nvert,3])
-        self._validate_type_kinds(vert_types, vert_type_kinds)
-        self._vert_types = self._validate_array(vert_types, np.int32, [self.nvert])
-        self._vert_type_kinds = vert_type_kinds
 
-        self._nbond = len(bonds) if isinstance(bonds, np.ndarray) else None
+        Parameter
+        ---------------
+        verts (np.ndarray) : coordinates of constituent beads of an object. (Nvert,3)
+        vert_types (list) : a list of type-id 
+        vert_typeid (np.ndarray) : type id of constituent beads. (Nvert,)
+        bonds (np.ndarray) : a list of pairs. (Nbond,2)
+        bond_r0 (np.ndarray) : equilibrium distances of pairs. (Nbond,)
+        bond_types (list) : a list of type-id for bonds.
+        bond_typeid (np.ndarray) : a list of bond-ids. (Nbond,)
+        """
+
+        self._nvert = Nvert
+        self._verts = self._validate_array(verts, np.float64, [self.nvert,3])
+        self._validate_type_kinds(vert_typeid, vert_types)
+        self._vert_typeid = self._validate_array(vert_typeid, np.int32, [self.nvert])
+        self._vert_types = vert_types
+
+        self._nbond = Nbond
         self._bonds = self._validate_array(bonds, np.int32, [self.nbond,2])
         self._bond_r0 = self._validate_array(bond_r0, np.float64, shape=[self.nbond])
-        self._bond_types = self._validate_array(bond_types, np.int32, shape=[self.nbond])
-        self._bond_type_kinds = bond_type_kinds
+        self._bond_typeid = self._validate_array(bond_typeid, np.int32, shape=[self.nbond])
+        self._bond_types = bond_types
 
     @property
     def nvert(self):
@@ -55,20 +68,26 @@ class BaseParticleObject:
         return self._verts
 
     @property
-    def vert_types(self):
+    def vert_typeid(self):
         """type ids of each vertices. the value must be digit."""
-        return self._vert_types
+        return self._vert_typeid
     
 
     @property
-    def vert_type_kinds(self):
+    def vert_types(self):
         """
         vertex type kinds. each value of the list is string (such as ["A","B","C",...])
         Each value of the list is corresponding with each digit of `vert_types`. 
         (e.g. "A"=0, "B"=1, ...)
         """
-        return self._vert_type_kinds
-    
+        return self._vert_types
+     
+    def append_new_type(self, new_type):
+        """append new `vert_type_kind` to `vert_type_kinds`."""
+        if new_type in self.vert_types:
+            raise ValueError(f"Given id {new_type} has already been registered.")
+
+        self._vert_types.append(new_type)
 
     @property
     def nbond(self):
@@ -83,7 +102,11 @@ class BaseParticleObject:
     @property
     def bond_types(self):
         return self._bond_types
-    
+
+    @property
+    def bond_typeid(self):
+        return self._bond_typeid
+
     # validation: 
 
     def _validate_type_kinds(self, typeids, type_kind_list):

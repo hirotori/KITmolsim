@@ -13,12 +13,18 @@ class TestIcosphere(unittest.TestCase):
 
     def test_property(self):
         self.assertEqual(self.sphere.nvert, 162)
+<<<<<<< HEAD
         self.assertEqual(self.sphere.nbond, 561)
         self.assertEqual(self.sphere.nbond_group, 6)
         
         self.assertTrue(np.array_equal(self.ids, np.arange(self.sphere.nbond)))    # must be True
 
+=======
+        self.assertEqual(self.sphere.nbond_group, 6)
+>>>>>>> sphere_api
 
-    
+    def test_assign_patch(self):
+        self.sphere.assign_patch_surface(angle=90)
+        
 if __name__ == "__main__":
     unittest.main()
