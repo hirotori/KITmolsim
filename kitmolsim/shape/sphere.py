@@ -66,7 +66,7 @@ class IcosphereParticle(util.BaseDiscreteParticleObject):
         for _bt, _r0 in enumerate(_r0s):
             bond_group_ids = np.where(bond_r0 == _r0)[0]
             bond_group_id_list.append(bond_group_ids)
-            bond_types[bond_group_ids] = _bt
+            bond_typeid[bond_group_ids] = _bt
 
         super().__init__(len(verts), verts, vert_typeid, vert_types,
                          len(bonds), bonds, bond_r0, bond_typeid, bond_types)
