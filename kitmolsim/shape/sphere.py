@@ -1,8 +1,8 @@
 from . import icomesh, util
 import numpy as np
 
-class IcosphereParticle(util.BaseParticleObject):    
-    def __init__(self, radius:float, center=[0,0,0], nsub=2, bond_type="diametric") -> None:
+class IcosphereParticle(util.BaseDiscreteParticleObject):    
+    def __init__(self, radius:float, center=[0,0,0], nsub=2, bond_type="diametric", default_vert_type="A") -> None:
         icos = icomesh.Icosphere(radius, center, nsub)
         self._radius = radius
         self._center = center
@@ -52,28 +52,29 @@ class IcosphereParticle(util.BaseParticleObject):
         # properties required for molecular simulation
         # ** vertex
         vert_typeid = np.zeros(verts.shape[0])
-        vert_type_kinds = [self._id_to_str(0)]
+        vert_types = [default_vert_type]
 
         # ** bonds
         bond_r0 = bond_distances.round(decimals=5) 
-        _r0s, _nc = np.unique(bond_r0, return_counts=True) # unique r0
+        _r0s, _ = np.unique(bond_r0, return_counts=True) # unique r0
         bond_group_id_list = [] # list of bonds in different group
         nbond_group = len(_r0s)
         bond_group_r0 = _r0s
-        bond_types = np.zeros(bonds.shape[0], dtype=np.int32) # 0 for surface pairs
-        bond_type_kinds = [f"bond{id}" for id in range(nbond_group)]
+        bond_typeid = np.zeros(bonds.shape[0], dtype=np.int32) # 0 for surface pairs
+        bond_types = [f"bond{id}" for id in range(nbond_group)]
 
-        for bond_type_id, _r0 in enumerate(_r0s):
+        for _bt, _r0 in enumerate(_r0s):
             bond_group_ids = np.where(bond_r0 == _r0)[0]
             bond_group_id_list.append(bond_group_ids)
-            bond_types[bond_group_ids] = bond_type_id
+            bond_types[bond_group_ids] = _bt
 
-        super().__init__(verts, vert_typeid, vert_type_kinds,
-                       bonds, bond_r0, bond_types, bond_type_kinds)
+        super().__init__(len(verts), verts, vert_typeid, vert_types,
+                         len(bonds), bonds, bond_r0, bond_typeid, bond_types)
 
         # bond group
         self.nbond_group = nbond_group
         self.bond_groups = bond_group_id_list
+        self.bond_group_r0 = bond_group_r0
 
         # ** patch 
         self.patch_vert_ids = {}
@@ -128,7 +129,7 @@ class IcosphereParticle(util.BaseParticleObject):
 
         self.vert_types[_patch_vert_ids] = typeid
         self.patch_vert_ids[self._id_to_str(typeid)] = _patch_vert_ids
-        self.append_new_type_kind(self._id_to_str(typeid))
+        self.append_new_type(self._id_to_str(typeid))
 
 
 class FCCSphere:
