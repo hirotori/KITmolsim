@@ -161,7 +161,7 @@ def placing_particles_fcc(rho:float, Ntarget:int, Lbox, rng:np.random.Generator,
         r_water = rng.choice(r_water, size=Ntarget, replace=False)
         print(f"{abs(nwater_rest)} beads are removed.")
 
-    return np.ndarray(r_water)
+    return r_water
 
 def randomize_positions(Ncol:float, xrange, yrange, zrange, points:np.ndarray, pairs:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
