@@ -209,6 +209,55 @@ def randomize_positions(Ncol:float, xrange, yrange, zrange, points:np.ndarray, p
     return all_points, all_pairs
 
 
+def placing_polymers(n_seg:int, l_seg:float, d_seg:float, n_poly:int, Lbox:np.ndarray, r_obst, d_obst, seed:int):
+    """
+    placing spring-bead polymers in a simulation domain.
+
+    Parameter
+    ----------
+    n_seg (int)   : number of segments consisting of a polymer
+    l_seg (float) : length of neighboring segments 
+    d_seg (float) : diameter of a segment
+    n_poly (int)  : number of polymers to place in a simulation domain
+    Lbox (ndarray): edge lenths of a simulation domain
+    """
+    rng = np.random.default_rng(seed=seed)
+    r_polys = []
+    bonds = []
+
+    def __random_spherical_point(radius:float):
+        _u = rng.random(2)
+        _z = -2.0*_u[0] + 1.0
+        _x = np.sqrt(1.0-_z*_z)*np.cos(2.0*np.pi*_u[1])
+        _y = np.sqrt(1.0-_z*_z)*np.sin(2.0*np.pi*_u[1])
+        return np.array([_x, _y, _z])*radius
+
+    obst_exists = r_obst is not None and d_obst is not None
+
+    # place seed particles (1sr segments of polymers)
+    r_seeds = placing_particles_without_overlapping(n_poly, Lbox, rng, d_seg)
+
+    for i in range(n_poly):
+        r0 = r_seeds[i]
+        r_polys.append(r0)
+        n_count = 0
+        while n_count < n_seg-1:
+            # place remaining segments
+            ri = r0 + __random_spherical_point(l_seg)
+
+            # test
+            # - for other seeds
+            accept_seed  = all(__calc_distance_with_pbc(ri, r_seeds, Lbox) > d_seg)
+            if accept_seed:
+                # - for other polymers
+                accept_polys = all(__calc_distance_with_pbc(ri, r_polys, Lbox) > d_seg)
+                if accept_polys:
+                    r_polys.append(ri)
+                    n_count += 1
+                    r0 = ri
+    
+    return r_polys
+
 def fcc_unit_cell():
     return np.array(
         [[0.0, 0.0, 0.0], # 0
