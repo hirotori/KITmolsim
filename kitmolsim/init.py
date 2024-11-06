@@ -256,7 +256,7 @@ def placing_polymers(n_seg:int, l_seg:float, d_seg:float, n_poly:int, Lbox:np.nd
                     n_count += 1
                     r0 = ri
     
-    return r_polys
+    return np.array(r_polys)
 
 def fcc_unit_cell():
     return np.array(
