@@ -235,9 +235,10 @@ def placing_polymers(n_seg:int, l_seg:float, d_seg:float, n_poly:int, Lbox:np.nd
     obst_exists = r_obst is not None and d_obst is not None
 
     # place seed particles (1sr segments of polymers)
-    r_seeds = placing_particles_without_overlapping(n_poly, Lbox, rng, d_seg)
+    r_seeds = placing_particles_without_overlapping(n_poly, Lbox, rng, d_seg, r_obst, d_obst)
 
     for i in range(n_poly):
+        print(f"\r kitmolsim::init::polymer: n = {i}", end="")
         r0 = r_seeds[i]
         r_polys.append(r0)
         n_count = 0
@@ -246,6 +247,10 @@ def placing_polymers(n_seg:int, l_seg:float, d_seg:float, n_poly:int, Lbox:np.nd
             ri = r0 + __random_spherical_point(l_seg)
 
             # test
+            # TODO: test for obstacles
+            if obst_exists:
+                if not __can_insert_particle(ri, r_obst, Lbox, d_seg, d_obst): continue #if not accepted
+
             # - for other seeds
             accept_seed  = all(__calc_distance_with_pbc(ri, r_seeds, Lbox) > d_seg)
             if accept_seed:
