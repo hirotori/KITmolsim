@@ -79,7 +79,7 @@ def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, 
         ri[2] = ri[2]*Lbox[2] - Lbox[2]/2
 
         # Test the overlap between the newly added particle and the other particles.
-        dij = _dist.calc_distance_with_p2_pbc(ri, pos, Lbox)
+        dij = __calc_distance_with_pbc(ri, pos, Lbox)
         if all(dij >= diameter):
             # test the overlap between new particle and the obstacles
             if obst_exists:
