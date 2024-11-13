@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Tuple, Union
+from .analyze import _dist
 
 def create_random_state(N:int, Lbox, kT:float, seed:int, overlap=True, diameter=None):
     """
@@ -78,7 +79,7 @@ def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, 
         ri[2] = ri[2]*Lbox[2] - Lbox[2]/2
 
         # Test the overlap between the newly added particle and the other particles.
-        dij = __calc_distance_with_pbc(ri, pos, Lbox)
+        dij = _dist.calc_distance_with_p2_pbc(ri, pos, Lbox)
         if all(dij >= diameter):
             # test the overlap between new particle and the obstacles
             if obst_exists:
@@ -96,13 +97,14 @@ def placing_particles_without_overlapping(N:int, Lbox, rng:np.random.Generator, 
     return np.array(pos)
 
 def __can_insert_particle(ri, obst_coms, Lbox, d, obs_d):
-    dij_obs = __calc_distance_with_pbc(ri, obst_coms, Lbox)
+    dij_obs = _dist.calc_distance_with_p2_pbc(ri, obst_coms, Lbox)
     if all(dij_obs >= 0.5*(d+obs_d)):
         return True
     else:
         return False
 
 def __calc_distance_with_pbc(ri, pos_others, Lbox):
+    """deprecated. """
     diff = np.abs(pos_others - ri)
     diff = np.where(diff > Lbox / 2, diff-Lbox, diff)
     dij = np.sqrt(np.sum(diff*diff, axis=1))
@@ -140,7 +142,7 @@ def placing_particles_fcc(rho:float, Ntarget:int, Lbox, rng:np.random.Generator,
     # delete atoms
     r_water_new = []
     for rw in r_water:
-        dij_obs = __calc_distance_with_pbc(rw, obstacle_coms, Lbox)
+        dij_obs = _dist.calc_distance_with_p2_pbc(rw, obstacle_coms, Lbox)
         if np.all(dij_obs >= obstacle_diameter):
             r_water_new.append(rw)
     print(f"Water beads deleted: {len(r_water)} ==> {len(r_water_new)}")
@@ -222,7 +224,7 @@ def placing_polymers(n_seg:int, l_seg:float, d_seg:float, n_poly:int, Lbox:np.nd
     Lbox (ndarray): edge lenths of a simulation domain
     """
     rng = np.random.default_rng(seed=seed)
-    r_polys = []
+    r_polys = np.zeros((n_poly*n_seg,3))
     bonds = []
 
     def __random_spherical_point(radius:float):
@@ -236,11 +238,12 @@ def placing_polymers(n_seg:int, l_seg:float, d_seg:float, n_poly:int, Lbox:np.nd
 
     # place seed particles (1sr segments of polymers)
     r_seeds = placing_particles_without_overlapping(n_poly, Lbox, rng, d_seg, r_obst, d_obst)
-
+    i_poly = 0
     for i in range(n_poly):
         print(f"\r kitmolsim::init::polymer: n = {i}", end="")
         r0 = r_seeds[i]
-        r_polys.append(r0)
+        r_polys[i_poly] = r0
+        i_poly += 1
         n_count = 0
         while n_count < n_seg-1:
             # place remaining segments
@@ -252,16 +255,17 @@ def placing_polymers(n_seg:int, l_seg:float, d_seg:float, n_poly:int, Lbox:np.nd
                 if not __can_insert_particle(ri, r_obst, Lbox, d_seg, d_obst): continue #if not accepted
 
             # - for other seeds
-            accept_seed  = all(__calc_distance_with_pbc(ri, r_seeds, Lbox) > d_seg)
+            accept_seed  = all(_dist.calc_distance_with_p2_pbc(ri, r_seeds, Lbox) > d_seg)
             if accept_seed:
                 # - for other polymers
-                accept_polys = all(__calc_distance_with_pbc(ri, r_polys, Lbox) > d_seg)
+                accept_polys = all(_dist.calc_distance_with_p2_pbc(ri, r_polys[:i_poly], Lbox) > d_seg)
                 if accept_polys:
-                    r_polys.append(ri)
+                    r_polys[i_poly] = ri
+                    i_poly += 1
                     n_count += 1
                     r0 = ri
     
-    return np.array(r_polys)
+    return r_polys
 
 def fcc_unit_cell():
     return np.array(

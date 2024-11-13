@@ -17,6 +17,17 @@ subroutine calc_distance_pbc_interface(N, L, r, mat) bind(c, name="fort_calc_dis
 
 end subroutine
 
+subroutine calc_distance_two_part_pbc_interface(N, L, r1, r2, dist) bind(c, name="fort_calc_distance_p2_pbc")
+    integer(c_int),intent(in) :: N
+    real(c_double),intent(in) :: L(3)
+    real(c_double),intent(in) :: r1(3)
+    real(c_double),intent(in) :: r2(3,N)
+    real(c_double),intent(inout) :: dist(N)
+
+    call calc_distance_two_paricle_pbc(N, L, r1, r2, dist)
+
+end subroutine
+
 
 subroutine compute_radial_distribution_cinterf(n, natom, r, dr, Lbox, h) &
     bind(c, name="fort_compute_radial_distribution")

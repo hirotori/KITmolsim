@@ -29,5 +29,23 @@ subroutine calc_distance_pbc(N, L, r, mat)
 
 end subroutine
 
+pure subroutine calc_distance_two_paricle_pbc(N, L, r1, r2, dist)
+    integer(int32),intent(in) :: N
+    real(real64),intent(in) :: L(3)
+    real(real64),intent(in) :: r1(3)
+    real(real64),intent(in) :: r2(3,N)
+    real(real64),intent(inout) :: dist(N)
+
+    integer(int32) i
+    real(real64) r1j(3), d1j_sq
+
+    do i = 1, N
+        r1j(:) = abs(r1(:) - r2(:,i))
+        r1j(:) = merge(r1j - L, r1j, mask=r1j > L/2)
+        d1j_sq = sum(r1j*r1j)
+        dist(i) = sqrt(d1j_sq)
+    end do
+
+end subroutine
 
 end module distance_m
