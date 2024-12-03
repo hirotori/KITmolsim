@@ -6,12 +6,12 @@ import numpy as np
 
 class test_PlacingPolymers(unittest.TestCase):
     def setUp(self):
-        self.L = 30.0
+        self.L = 80.0
         self.Lbox = np.full(3, fill_value=self.L)
-        self.n_seg = 10
+        self.n_seg = 25
         self.l_seg = 1.0
         self.d_seg = 1.0
-        self.n_poly = 100
+        self.n_poly = 1000
 
     def test_placing_polymers(self):
         r_poly = placing_polymers(self.n_seg, self.l_seg, d_seg=self.d_seg, n_poly=self.n_poly, Lbox=self.Lbox, 
