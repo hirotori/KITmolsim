@@ -1,6 +1,4 @@
 import numpy as np
-import collections.abc
-import typing
 import warnings
 
 class LAMMPSTrajectoryFrame:
@@ -33,11 +31,12 @@ class LAMMPSTrajectoryFrame:
         self.validate()
 
     def validate(self):
-        if self.atype is not None: _ = self.atype.reshape([self.natom])
-        if self.ids is not None: _ = self.ids.reshape([self.natom])
-        if self.pos is not None: _ = self.pos.reshape([self.natom,3])
-        if self.vel is not None: _ = self.vel.reshape([self.natom,3])
-        if self.img is not None: _ = self.img.reshape([self.natom,3])
+        if self.box is not None: self.box = self.box.reshape([3]) 
+        if self.atype is not None: self.atype = self.atype.reshape([self.natom])
+        if self.ids is not None: self.ids = self.ids.reshape([self.natom])
+        if self.pos is not None: self.pos = self.pos.reshape([self.natom,3])
+        if self.vel is not None: self.vel = self.vel.reshape([self.natom,3])
+        if self.img is not None: self.img = self.img.reshape([self.natom,3])
 
 class LAMMPSDataFrame(LAMMPSTrajectoryFrame):
     def __init__(self, timestep: int, natom: int, 
@@ -65,71 +64,134 @@ class LAMMPSDataFrame(LAMMPSTrajectoryFrame):
             _ = self.bond_coeffs.reshape([self.nbond_type])
             _ = self.bond_r0.reshape([self.nbond_type])
 
-class LAMMPSTrajectory(collections.abc.Container):
+class LAMMPSTrajectory:
     """
-    LAMMPS trajectory containing multiple frames.
-    """
+    Class to handle LAMMPS dump files efficiently.
+    Instead of loading the entire file, only the required timesteps are parsed.
 
-    def __init__(self):
-        self.frames: typing.List[LAMMPSTrajectoryFrame] = []
+    Note
+    ---------
+    The region definition is valid only for the periodic boundary condition (`box bounds pp pp pp`). 
+    The atoms are assumed to be arranged in the following format: 
+    atom ids, atom types, and coordinates (x,y,z or xu,yu,zu).
+
+
+    Example
+    ---------
+    >>> dat_file = LAMMPSTrajectory("test.dat")
+    >>> frame = dat_file[10]  # Retrieve data for the 10th frame
+    >>> print("Positions:", frame.pos)
+    >>> print("Box size:", frame.box)
+    >>> print("Particle types:", frame.atype)
+
+    """
+    def __init__(self, filename:str):
+        """
+        Class to handle LAMMPS dump files efficiently.
+        Instead of loading the entire file, only the required timesteps are parsed.
         
-    def append(self, frame:LAMMPSTrajectoryFrame):
-        if not isinstance(frame, LAMMPSTrajectoryFrame):
-            raise TypeError("frame must be LAMMPSTrajectoryFrame")
-        self.frames.append(frame)
+        Parameters
+        -----------
+        filename (str): Path to the LAMMPS dump file.   
+        """
 
-    def __iter__(self):
-        yield from self.frames
+#        self.frames: typing.List[LAMMPSTrajectoryFrame] = []
+        self.filename = filename
+        self._index_map = self._build_index()
+        self.nframe = len(self._index_map) - 1
+
+
+    def _build_index(self):
+        """
+        Build an index for the file.
+        Maps each timestep to its starting position in the file.
+        
+        Returns:
+            list: A list where values are file positions.
+
+        Note:
+            If file size is larger than the system memory size, it does not work succesfully.
+        """
+        import re
+        index_map = []
+        pattern = re.compile(r"ITEM: TIMESTEP\n(\d+)\n")
+        with open(self.filename, 'r') as f:
+            content = f.read()  # Read the entire file into memory
+            for match in pattern.finditer(content):
+                index_map.append(match.start())
+        return index_map
+
+    def _read_frame(self, position):
+        """
+        Read the data of a single timestep from the specified file position.
+        
+        Parameters
+        ------------
+            position (int): Position in the file where the timestep data starts.
+        
+        Returns:
+            DataFrame: A DataFrame object containing the data of the specified timestep.
+        """
+        with open(self.filename, 'r') as f:
+            f.seek(position)
+            assert f.readline().startswith("ITEM: TIMESTEP")
+            timestep = int(f.readline().strip())  
+
+            assert f.readline().startswith("ITEM: NUMBER OF ATOMS")
+            num_atoms = int(f.readline().strip())
+
+            assert f.readline().startswith("ITEM: BOX BOUNDS pp pp pp")
+            box_bounds = []
+            for _ in range(3):
+                box_bounds.append([float(x) for x in f.readline().strip().split()])
+            box_bounds = np.array([l[1] - l[0] for l in box_bounds])
+
+            assert f.readline().startswith("ITEM: ATOMS")
+            # For simplicity, assume the format is "atom" and "custom" with 5 tags 
+            # (type, id, coordinates (x,y,z or xs,ys,zs or xu,yu,zu))
+            buffer = np.loadtxt(f, max_rows=num_atoms)
+            atom_ids   = buffer[:,0]
+            atom_types = buffer[:,1]
+            positions = buffer[:,2:5]
+
+        return LAMMPSTrajectoryFrame(timestep=timestep, 
+                                     natom=num_atoms, 
+                                     ids=atom_ids, 
+                                     pos=positions, 
+                                     box=box_bounds, 
+                                     atype=atom_types)
+
 
     def __len__(self):
-        return len(self.frames)
+        return self.nframe
     
-    def __contains__(self, __x: object) -> bool:
-        return __x in self.frames
     
-    def __getitem__(self, key) -> LAMMPSTrajectoryFrame:
-        return self.frames[key]
-    
-    def unwrap(self) -> None:
-        """ 
-        unwraps all coordinates contained in frames.
-
-        All positions except the initial position are to be unwrapped.
+    def __getitem__(self, timestep):
         """
-        _nframe = len(self.frames)
-        if _nframe <= 1:
-            raise ValueError(f"trajectory does not have enough frames for coordinates to be unwrapped.")
+        Retrieve the data of the specified timestep.
         
-        _natom = self.frames[0].natom
-        for i in range(_nframe-1):
-            _unwrap_pos(_natom, 
-                        prev_pos=self.frames[i].pos, 
-                        next_pos=self.frames[i+1].pos,
-                        box=self.frames[i].box)
-            
-    def wrap(self):
-        """ wrap the unwrapped coordinates"""
-        for snap in self.frames:
-            L = snap.box
-            dL = L/2
-            snap.pos = (snap.pos + dL)%L - dL
+        Args:
+            timestep (int): The timestep number to retrieve.
+        
+        Returns:
+            DataFrame: A DataFrame object containing the data of the specified timestep.
+        
+        Raises:
+            KeyError: If the specified timestep is not found in the file.
 
-
-def _unwrap_pos(natom, prev_pos:np.ndarray, next_pos:np.ndarray, box:np.ndarray):
-    """ 
-    unwrao corrdinates from the previous position.
-    """
-    dL = box/2
-    for i in range(natom):
-        dx = next_pos[i,:] - prev_pos[i,:]
-        if dx[0] > dL[0]:
-            next_pos[i,0] -= ( dx[0]+dL[0])//box[0]*box[0]
-        if dx[0] < -dL[0]:
-            next_pos[i,0] += (-dx[0]+dL[0])//box[0]*box[0]
+        Note: 
+            Slice index is not supported.
+        """
+        if timestep not in self._index_map:
+            raise KeyError(f"Timestep {timestep} not found in the file.")
+        position = self._index_map[timestep]
+        return self._read_frame(position)
     
 
 def read_dumpfile(filename:str):
     """
+    This is deprecated. 
+
     read dump file written by the command "dump" with the keyword option "atom". 
 
     Parameter
@@ -137,41 +199,11 @@ def read_dumpfile(filename:str):
     filename: str
         filename (.lammpstrj)
     """
-    trajectory = LAMMPSTrajectory()
-    n = 0
-    with open(filename, mode="r") as f:
+    warn_msg = "This procedure is deprecated. Call a `LAMMPSTrajectory` instance instead."
+    warnings.warn(warn_msg, DeprecationWarning)
 
-        keyword = f.readline() #read first line
-        while (keyword):
-            if "ITEM: TIMESTEP" in keyword:
-                timestep = int(f.readline().split(" ")[0])
+    return LAMMPSTrajectory(filename)
 
-            if "ITEM: NUMBER OF ATOMS" in keyword:
-                natom = int(f.readline().split(" ")[0])
-                
-            if "ITEM: BOX BOUNDS" in keyword:
-                lxo, lxh = [float(item) for item in f.readline().split()]
-                lyo, lyh = [float(item) for item in f.readline().split()]
-                lzo, lzh = [float(item) for item in f.readline().split()]
-                box = np.array([lxh-lxo, lyh-lyo, lzh-lzo])
-
-            if "ITEM: ATOMS" in keyword:
-                # count number of items (e.g. "ITEM: ATOMS type id x y z ...")
-                nitem = len(keyword.split(" ")[2:])
-                # For simplicity, assume the format is "atom" and "custom" with 5 tags (type, id, coordinates (x,y,z or xs,ys,zs or xu,yu,zu))
-                assert(nitem == 5)
-                buffer = np.loadtxt(f, max_rows=natom)
-                
-                _frame = LAMMPSTrajectoryFrame(timestep, natom, buffer[:,0], buffer[:,1], buffer[:,2:5], box)
-
-                trajectory.append(_frame)
-                print(f"\r Number of item = {n}", end="")
-                n += 1
-
-            keyword = f.readline() # read the first line of next frame
-    print("")
-    return trajectory
-    
 def read_datafile_chunk(filename:str, ntotal:int):
     with open(file=filename, mode="r") as f:
         f.readline() #the first line (comment)
