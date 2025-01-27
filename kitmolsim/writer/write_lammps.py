@@ -1,5 +1,5 @@
 import numpy as np
-
+from ..reader import read_lammps as rlmp
 
 def write_lmp_data(filename:str, Lbox:np.ndarray, 
                    Ntotal:int, Natyp:int, pos:np.ndarray, mole_id:np.ndarray, atype:np.ndarray, charges:np.ndarray, 
@@ -46,3 +46,30 @@ def write_lmp_data(filename:str, Lbox:np.ndarray,
             fmt.extend(["%f"]*bond_params.shape[0])
             np.savetxt(f, np.vstack((np.arange(Nbtyp)+1, bond_params)).T, fmt=fmt)
     
+
+class LAMMPSTrajectoryWriter:
+    
+    frames_: list[rlmp.LAMMPSTrajectoryFrame] = []
+
+    def __init__(self, filename:str) -> None:
+        self.frames_ = []
+        self.filename = filename
+        
+    def append(self, frame:rlmp.LAMMPSTrajectoryFrame):
+        self.frames_.append(frame)
+
+    def save(self):
+        with open(self.filename, mode="w") as f:
+            for frame in self.frames_:
+                f.write("ITEM: TIMESTEP\n")
+                f.write(f"{frame.timestep}\n")
+                f.write("ITEM: NUMBER OF ATOMS\n")
+                f.write(f"{frame.natom}\n")
+                f.write("ITEM: BOX BOUNDS pp pp pp\n")
+                for n in range(3):
+                    f.write(f"{-frame.box[n]/2} {frame.box[n]/2}\n")
+                f.write("ITEM: ATOMS id type xu yu zu\n")
+                ids = np.arange(frame.natom)+1
+                np.savetxt(f, X=np.column_stack((ids, frame.atype, frame.pos)), 
+                           fmt="%d %d %f %f %f")
+        f.close()
