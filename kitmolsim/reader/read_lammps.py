@@ -182,7 +182,7 @@ class LAMMPSTrajectory:
         Note: 
             Slice index is not supported.
         """
-        if timestep not in self._index_map:
+        if timestep > self.nframe:
             raise KeyError(f"Timestep {timestep} not found in the file.")
         position = self._index_map[timestep]
         return self._read_frame(position)
