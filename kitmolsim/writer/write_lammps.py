@@ -5,6 +5,7 @@ def write_lmp_data(filename:str, Lbox:np.ndarray,
                    Ntotal:int, Natyp:int, pos:np.ndarray, mole_id:np.ndarray, atype:np.ndarray, charges:np.ndarray, 
                    Nbond:int=None, Nbtyp:int=None, bond_type:np.ndarray=None, bondpair:np.ndarray=None, 
                    bond_params:np.ndarray=None,
+                   velocity:np.ndarray=None,
                    mode="w"):
     """
     write data as lammps data format.   
@@ -28,6 +29,11 @@ def write_lmp_data(filename:str, Lbox:np.ndarray,
         #np.savetxt("bond.dat", np.column_stack((bondid, btypeid, bonds_list)), fmt=['%7.0f', '%7.0f', '%7.0f', '%7.0f'])
         f.write("\n")
 
+        if isinstance(velocity, np.ndarray):
+            f.write("Velocities\n\n")
+            np.savetxt(f, np.column_stack((atomid, velocity)), fmt=['%7.0f', '%13.8f', '%13.8f', '%13.8f'])
+            f.write("\n")
+            
         has_bond_group = Nbond is not None and Nbtyp is not None and bond_type is not None and bondpair is not None
 
         if has_bond_group:
