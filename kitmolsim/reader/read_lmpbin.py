@@ -8,20 +8,66 @@ BIGINT = 8
 INT = 4
 DOUBLE = 8
 FLOAT = 4
+
+_LAMMPS_KEYS = {
+    "id": ("ids", None),
+    "type": ("atype", None),
+    "x": ("pos", 0),
+    "y": ("pos", 1),
+    "z": ("pos", 2),
+    "xu": ("pos", 0),
+    "yu": ("pos", 1),
+    "zu": ("pos", 2),
+    "xs": ("pos", 0),
+    "ys": ("pos", 1),
+    "zs": ("pos", 2),
+    "xsu": ("pos", 0),
+    "ysu": ("pos", 1),
+    "zsu": ("pos", 2),
+    "vx": ("vel", 0),
+    "vy": ("vel", 1),
+    "vz": ("vel", 2),
+    "ix": ("img", 0),
+    "iy": ("img", 1),
+    "iz": ("img", 2),
+}
+
 class LAMMPSBINReader:
     """
-    A file reader for LAMMPS binary dump file
+    A file reader for LAMMPS binary dump file (.lammpsbin).
+
+    This reader suppors indexing and slicing.
+    
+    This reader supports per-atom attributes listed below:
+    - atom id (`id`)
+    - atom type (`type`)
+    - wrapped coordinates (`x` `y` `z`)
+    - unwrapped coordinates (`xu` `yu` `zu`)
+    - scaled coordinates (`xs` `ys` `zs`)
+    - unwrapped and scaled coordinates (`xsu` `ysu` `zsu`)
+    - image flags (`ix` `iy` `iz`)
+    - velocity (`vx` `vy` `vz`)
+
+    Any attributes not listed above can also be read, but not stored in a frame object.
 
     Note
     ---------
-    valid only for `ITEM: ATOMS id type xu yu zu`
+
+    Coordinates, velocity, and image flags must contain all 3-components for each atom.
+
+    If the dump file has at least 2 set of coordinates (e.g. wrapped coordinates and unwrapped coordinates), 
+    This reader stores only attributes detected at last.
+    
+    This reader assumes constant atom number in each frame stored in a file. 
+
     """
     def __init__(self, filename:str) -> None:
         """
         Initialize LAMMPSBINReader object with the given LAMMPS dump file.
 
         Args:
-            filename (str): Path to the LAMMPS dump file."""
+            filename (str): Path to the LAMMPS dump file.
+        """
         _fname = os.path.expanduser(filename)
         self._f = open(_fname, mode="rb")
         self._fsize = os.path.getsize(_fname)
@@ -84,9 +130,10 @@ class LAMMPSBINReader:
         """
         read a frame from the file
         
-        Note
-        ---------
-        valid only for `ITEM: ATOMS id type xu yu zu`
+        returns:
+           loc (int): current file position
+           frame (LAMMPSTrajectoryFrame): a trajectory frame
+
         """
         ntimestep_bytes = self._f.read(BIGINT)
         if not ntimestep_bytes:
@@ -138,28 +185,68 @@ class LAMMPSBINReader:
 
         # create attributes from buffered data
         _offsets = np.append([0], np.cumsum(_true_counts))
-        colname = columuns.split(" ")
-        for nc, col in enumerate(colname):
-            if col == "id":
-                # _ids = _data_buffer[:,nc,:]
-                _ids = self._getarr(natoms, nchunk, _data_buffer[:,nc,:], _offsets, _true_counts)
-            elif col == "type":
-                _atype = self._getarr(natoms, nchunk, _data_buffer[:,nc,:], _offsets, _true_counts)
-            elif col == "xu":
-                _pos_x = self._getarr(natoms, nchunk, _data_buffer[:,nc,:], _offsets, _true_counts)
-            elif col == "yu":
-                _pos_y = self._getarr(natoms, nchunk, _data_buffer[:,nc,:], _offsets, _true_counts)
-            elif col == "zu":
-                _pos_z = self._getarr(natoms, nchunk, _data_buffer[:,nc,:], _offsets, _true_counts)
-            else:
-                raise ValueError(f"unknown keyword {col} in column")
+        colnames = columuns.split(" ") #e.g. id type x y z
 
-        #NOTE: x,y,z座標全てある前提. どれか欠けるとエラー. 
-        _pos = np.column_stack((_pos_x, _pos_y, _pos_z))
+        # map from lammps dump keys to read_lammps.LAMMPSTrajectoryFrame keys
+        # The original idea is came from https://github.com/mphowardlab/lammpsio/blob/main/src/lammpsio/dump.py
+        _schema = {}
+        for i, colname in enumerate(colnames):
+            try:
+                key, keyid = _LAMMPS_KEYS[colname]
+                if keyid is None:
+                    # for single component (id, type)
+                    _schema[key] = i
+                else:
+                    # for 3-component vector (pos, vel, img)
+                    if key not in _schema: _schema[key] = [None, None, None]
+                    _schema[key][keyid] = i
+                
+            except KeyError:
+                raise KeyError(f"read_lmpbin does not know such field name '{colname}'")
+
+        # validate schema
+        for key in ("pos", "vel", "img"):
+            if key in _schema and any(x is None for x in _schema[key]):
+                raise IOError("read_lmpbin requires 3-component vectors for 'pos', 'vel', and 'img'.")
+            
+        # get data from buffer
+        _vel = None #optional field valriable
+        _img = None #optional field valriable
+        for key in _schema:
+            if key == "ids":
+                # _ids = _data_buffer[:,nc,:]
+                nc = _schema[key]
+                _ids = self._getarr(natoms, nchunk, _data_buffer[:,nc,:], _offsets, _true_counts)
+
+            elif key == "atype":
+                nc = _schema[key]
+                _atype = self._getarr(natoms, nchunk, _data_buffer[:,nc,:], _offsets, _true_counts)
+        
+            elif key == "pos":
+                ncx, ncy, ncz = _schema[key]
+                _pos_x = self._getarr(natoms, nchunk, _data_buffer[:,ncx,:], _offsets, _true_counts)
+                _pos_y = self._getarr(natoms, nchunk, _data_buffer[:,ncy,:], _offsets, _true_counts)
+                _pos_z = self._getarr(natoms, nchunk, _data_buffer[:,ncz,:], _offsets, _true_counts)
+                _pos = np.column_stack((_pos_x, _pos_y, _pos_z))
+        
+            elif key == "vel":
+                ncx, ncy, ncz = _schema[key]
+                _vel_x = self._getarr(natoms, nchunk, _data_buffer[:,ncx,:], _offsets, _true_counts)
+                _vel_y = self._getarr(natoms, nchunk, _data_buffer[:,ncy,:], _offsets, _true_counts)
+                _vel_z = self._getarr(natoms, nchunk, _data_buffer[:,ncz,:], _offsets, _true_counts)
+                _vel = np.column_stack((_vel_x, _vel_y, _vel_z))
+
+            elif key == "img":
+                ncx, ncy, ncz = _schema[key]
+                _img_x = self._getarr(natoms, nchunk, _data_buffer[:,ncx,:], _offsets, _true_counts)
+                _img_y = self._getarr(natoms, nchunk, _data_buffer[:,ncy,:], _offsets, _true_counts)
+                _img_z = self._getarr(natoms, nchunk, _data_buffer[:,ncz,:], _offsets, _true_counts)
+                _img = np.column_stack((_img_x, _img_y, _img_z))
 
         loc = self._f.tell()
 
-        frame = rlmp.LAMMPSTrajectoryFrame(ntimestep, natoms, _ids, _atype, _pos, _box)        
+        frame = rlmp.LAMMPSTrajectoryFrame(ntimestep, natoms, _ids, _atype, _pos, _box, 
+                                           vel=_vel, img=_img)        
         return loc, frame
         
 
@@ -175,7 +262,10 @@ if __name__ == "__main__":
     fname = "~/annealing.lammpsbin"
     # fname = "pos.bin"
     traj = LAMMPSBINReader(fname) #contains 11 frames (0~10)
+    print(traj[1].natom)
     print(traj[1].timestep)
+    print(traj[1].pos.shape)
+    print(traj[1].vel)
     # print(traj[0].timestep)
     # print(traj[10].timestep)
     # # print(traj[11].timestep)
