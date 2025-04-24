@@ -225,7 +225,7 @@ def rectangle_particle(nx:int, ny:int, nz:int, center_bond=True):
 
     # make bond pair (surface)
     # ** XZ plane (bottom) ** 
-    bond_h, bond_v = _face_pair(nx, ny)
+    bond_h, bond_v = _face_pair(nx, nz)
     bondXZ = np.vstack((bond_h, bond_v))
     # ** XZ plane (top) ** 
     bondXZ = np.vstack((bondXZ, bondXZ.copy()+numv[0]))
@@ -242,10 +242,10 @@ def rectangle_particle(nx:int, ny:int, nz:int, center_bond=True):
     bond_v_tb = np.column_stack((offset+np.arange(nx)+numv[1], np.arange(nx)+(nz-1)*nx))
     bond_v_tt = np.column_stack((offset+np.arange(nx)+nx*(ny-3)+numv[1], np.arange(nx)+(nz-1)*nx+numv[0]))
     bondXY = np.vstack((bondXY_b, bond_v_bb, bond_v_bt, bondXY_t, bond_v_tb, bond_v_tt))
-
+    
     # ** YZ plane **
     offset += numv[1]*2
-    bond_h, bond_v = _face_pair(nx-2, ny-2, offset)
+    bond_h, bond_v = _face_pair(ny-2, nz-2, offset)
     bondYZ_b = np.vstack((bond_h, bond_v))
     bondYZ_t = bondYZ_b.copy()+numv[2]
     # - pair between left edge of XZplane_b & XZplane_t 
@@ -258,7 +258,7 @@ def rectangle_particle(nx:int, ny:int, nz:int, center_bond=True):
     bond_v_rxzb = np.column_stack((offset+numv[2]+np.arange(nz-2)*(ny-2), nx-1+np.arange(1,nz-1)*nx))
     bond_v_rxzt = np.column_stack((offset+numv[2]+ny-3+np.arange(nz-2)*(ny-2), numv[0]+nx-1+np.arange(1,nz-1)*nx))
     # - pair between right edge of XYplane_b & XYplane_t
-    bond_v_rxyb = np.column_stack((offset+numv[2]+np.arange(ny-2), 2*numv[0]+ny-1+np.arange(ny-2)*nx))
+    bond_v_rxyb = np.column_stack((offset+numv[2]+np.arange(ny-2), 2*numv[0]+nx-1+np.arange(ny-2)*nx))
     bond_v_rxyt = np.column_stack((offset+numv[2]+np.arange(ny-2)+(nz-3)*(ny-2), 2*numv[0]+numv[1]+nx-1+np.arange(ny-2)*nx))
     bondYZ = np.vstack((bondYZ_b, bond_v_lxzb, bond_v_lxzt, bond_v_lxyb, bond_v_lxyt, 
                         bondYZ_t, bond_v_rxzb, bond_v_rxzt, bond_v_rxyb, bond_v_rxyt))
