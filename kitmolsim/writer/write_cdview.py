@@ -80,8 +80,8 @@ def __validate(pos, atype, bs, be, bpair, btypeid, rad, c, lpos):
         _ = bpair.reshape([npair,2])
         min_atomid = bpair.min()
         max_atomid = bpair.max()
-        if min_atomid != 0:
-            raise ValueError("atom id in bondpair not started from 0.")
+        # if min_atomid != 0:
+        #     raise ValueError("atom id in bondpair not started from 0.")
 
     if btypeid is not None: _ = btypeid.reshape([npair])
 
