@@ -6,6 +6,7 @@ def write_lmp_data(filename:str, Lbox:np.ndarray,
                    Nbond:int=None, Nbtyp:int=None, bond_type:np.ndarray=None, bondpair:np.ndarray=None, 
                    bond_params:np.ndarray=None,
                    velocity:np.ndarray=None,
+                   image:np.ndarray=None,
                    mode="w"):
     """
     write data as lammps data format.   
@@ -25,7 +26,13 @@ def write_lmp_data(filename:str, Lbox:np.ndarray,
         f.write("\n")
         f.write("Atoms\n\n")
         atomid = np.arange(Ntotal) + 1
-        np.savetxt(f, np.column_stack((atomid, mole_id, atype, charges, pos)), fmt=['%7.0f', '%7.0f', '%2.0f', '%2.0f', '%13.8f', '%13.8f', '%13.8f'])
+        if isinstance(image, np.ndarray):
+            np.savetxt(f, np.column_stack((atomid, mole_id, atype, charges, pos, image)), 
+                       fmt=['%7.0f', '%7.0f', '%2.0f', '%2.0f', '%13.8f', '%13.8f', '%13.8f', '%7.0f', '%7.0f', '%7.0f'])
+        else:
+            np.savetxt(f, np.column_stack((atomid, mole_id, atype, charges, pos)), 
+                       fmt=['%7.0f', '%7.0f', '%2.0f', '%2.0f', '%13.8f', '%13.8f', '%13.8f'])
+            
         #np.savetxt("bond.dat", np.column_stack((bondid, btypeid, bonds_list)), fmt=['%7.0f', '%7.0f', '%7.0f', '%7.0f'])
         f.write("\n")
 
