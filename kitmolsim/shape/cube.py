@@ -61,11 +61,73 @@ class RectangleParticle:
 
     def assign_vert_type(self, patch:str, type_id:int):
 
+        if patch not in self.patch_dict.keys():
+            raise ValueError(f'`patch` must be: "XZ-", "XZ+", "XY-", "XY+", "YZ-" or "YZ+" but {patch} given.')
+
+        self._check_and_register_key(type_id)    
+
+        self.vert_type[self.patch_dict[patch]] = type_id
+    
+    def assign_vert_type_by_range(self, patch:str, len0:float, len1:float, type_id:int):
+
+        if patch == "XY-":
+            ax_0 = 0
+            ax_1 = 1
+            ax_2 = 2
+            plane = 0
+        elif patch == "XY+":
+            ax_0 = 0
+            ax_1 = 1
+            ax_2 = 2
+            plane = self.L[ax_2]
+        elif patch == "XZ-":
+            ax_0 = 0
+            ax_1 = 2
+            ax_2 = 1
+            plane = 0
+        elif patch == "XZ+":
+            ax_0 = 0
+            ax_1 = 2
+            ax_2 = 1
+            plane= self.L[ax_2]
+        elif patch == "YZ-":
+            ax_0 = 1
+            ax_1 = 2
+            ax_2 = 0
+            plane = 0
+        elif patch == "YZ+":
+            ax_0 = 1
+            ax_1 = 2
+            ax_2 = 0
+            plane = self.L[ax_2]
+        else:
+            raise ValueError(f'`patch` must be: "XZ-", "XZ+", "XY-", "XY+", "YZ-" or "YZ+" but {patch} given.')
+
+        if len0 > self.L[ax_0] or len1 > self.L[ax_1]:
+            raise ValueError("len0 or len1 > L")
+
+        if patch[2] == "-":
+            mask_2 = self.verts[:,ax_2] <= plane + 0.001
+        elif patch[2] == "+":
+            mask_2 = self.verts[:,ax_2] >= plane - 0.001
+        
+        center = self.verts.mean(axis=0)
+        range_0 = (center[0]-len0/2, center[0]+len0/2)
+        range_1 = (center[1]-len1/2, center[1]+len1/2)
+        
+        mask_0 = (self.verts[:,ax_0] >= range_0[0]) & (self.verts[:,ax_0] <= range_0[1])
+        mask_1 = (self.verts[:,ax_1] >= range_1[0]) & (self.verts[:,ax_1] <= range_1[1])
+        mask = mask_2 & mask_0 & mask_1
+
+        self._check_and_register_key(type_id)
+        self.vert_type[mask] = type_id
+        
+
+    
+    def _check_and_register_key(self, type_id:int):
+
         int_to_alp = {0:"A", 1:"B", 2:"C", 3:"D", 4:"E", 5:"F", 6:"G"}
 
-        if patch not in self.patch_dict.keys():
-            raise ValueError('`patch` must be: "XZ-", "XZ+", "XY-", "XY+", "YZ-" or "YZ+".')
-        
         if type_id == 0:
             print("WARNING: type_id = 0 is a default type.")
 
@@ -75,9 +137,6 @@ class RectangleParticle:
         if int_to_alp[type_id] not in self.vert_type_kinds:
             self.vert_type_kinds.append(int_to_alp[type_id])
             self.vert_type_kinds.sort()
-
-        self.vert_type[self.patch_dict[patch]] = type_id
-                
 
 def _face_pair(ix:int, jy:int, offset=0):
     """
