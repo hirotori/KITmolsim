@@ -146,14 +146,14 @@ def placing_particles_fcc(rho:float, Ntarget:int, Lbox, rng:np.random.Generator,
         if np.all(dij_obs >= obstacle_diameter):
             r_water_new.append(rw)
     print(f"Water beads deleted: {len(r_water)} ==> {len(r_water_new)}")
-    r_water = np.array(r_water_new)
+    r_water = np.array(r_water_new) if len(r_water_new) > 0 else np.zeros([1,3])
 
     Nwater_inserted = r_water.shape[0]
     nwater_rest = Ntarget - Nwater_inserted
     if nwater_rest > 0:
         # this process is slow. 
         _obst_coms = np.concatenate((r_water, obstacle_coms), axis=0)
-        _obst_diam = np.concatenate((np.full(Nwater_inserted, fill_value=1.0), np.full(len(_obst_coms), fill_value=obstacle_diameter)))
+        _obst_diam = np.concatenate((np.full(Nwater_inserted, fill_value=1.0), np.full(len(obstacle_coms), fill_value=obstacle_diameter)))
         r_water_rest  = placing_particles_without_overlapping(N=nwater_rest, Lbox=Lbox, rng=rng, diameter=1.0,
                                                                 obstacle_coms=_obst_coms, obstacle_diameter=_obst_diam)
         r_water = np.concatenate((r_water, r_water_rest), axis=0)
@@ -322,6 +322,7 @@ def make_defected_fcc(L:float, rho:float, seed:int):
     """
     # compute num of cells
     m = int(np.ceil((L**3 * rho / 4.0)**(1.0 / 3.0)))
+    
     a = L/m
 
     pos, Lbox = make_lattice(fcc_unit_cell(), (m,m,m), a)

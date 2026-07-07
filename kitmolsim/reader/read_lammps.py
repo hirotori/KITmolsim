@@ -267,7 +267,6 @@ def read_datafile(filename:str):
         while (keyword):
             
             words = keyword.split(" ")
-
             # box
             if len(words) == 4:
                 if words[2] == "xlo" and words[3] == "xhi\n":
@@ -306,7 +305,7 @@ def read_datafile(filename:str):
             if keyword == "Atoms\n":
                 _ = f.readline()
                 buffer = np.loadtxt(f, max_rows=natom)
-                atomid = buffer[:,0]
+                atomid = buffer[:,0]; print(atomid)
                 molecule_id = buffer[:,1]
                 atom_type   = buffer[:,2]
                 q           = buffer[:,3]
